@@ -135,7 +135,7 @@ export function InputForm({ client: c, onChange }: Props) {
         {/* ── 財務狀況 ── */}
         {tab === 'finance' && (
           <>
-            <Section title="月收入">
+            <Section title="收入項目">
               {c.incomes.map((item, i) => (
                 <div key={i} className="mb-3 bg-slate-50 rounded-xl p-3">
                   <div className="flex gap-2 items-center">
@@ -207,7 +207,7 @@ export function InputForm({ client: c, onChange }: Props) {
               <AddBtn onClick={addIncome} label="新增收入" />
             </Section>
 
-            <Section title="月支出">
+            <Section title="支出項目">
               {c.expenses.map((item, i) => (
                 <div key={i} className="mb-3 bg-slate-50 rounded-xl p-3">
                   <div className="flex gap-2 items-center">
