@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  calcCashFlow, calcAssetGrowth, calcRetirement,
+  calcCashFlow, calcAssetGrowth, calcRetirement, calcCashFlowProjection,
   totalAssets, totalLiabilities, netWorth,
   fmtNTD, fmtPct,
 } from './calculations'
@@ -23,6 +23,7 @@ function makeClient(overrides: Partial<ClientProfile> = {}): ClientProfile {
     riskProfile: 'moderate',
     customReturnRate: null,
     monthlyContribution: 10000,
+    globalInflationRate: 0.02,
     currentAge: 35,
     retirementAge: 60,
     targetMonthlyRetirementIncome: 50000,
@@ -267,6 +268,51 @@ describe('fmtPct', () => {
 
   it('整數補 .0', () => {
     expect(fmtPct(10)).toBe('10.0%')
+  })
+})
+
+// ── calcCashFlowProjection ────────────────────────────────────
+
+describe('calcCashFlowProjection', () => {
+  it('預設回傳 6 個點（年 0–5）', () => {
+    expect(calcCashFlowProjection(makeClient())).toHaveLength(6)
+  })
+
+  it('year 0 的數字與 calcCashFlow 一致', () => {
+    const c = makeClient()
+    const cf = calcCashFlow(c)
+    const proj = calcCashFlowProjection(c)
+    expect(proj[0].net).toBeCloseTo(cf.netCashFlow)
+    expect(proj[0].true_).toBeCloseTo(cf.trueNetCashFlow)
+    expect(proj[0].investible).toBeCloseTo(cf.investibleCashFlow)
+  })
+
+  it('收入 growthRate 5% → 第 5 年收入 ≈ 原×1.05⁵', () => {
+    const c = makeClient({
+      incomes: [{ label: '薪資', amount: 60000, type: 'fixed', growthRate: 0.05 }],
+    })
+    const proj = calcCashFlowProjection(c)
+    const expected = 60000 * Math.pow(1.05, 5)
+    expect(proj[5].totalIncome).toBeCloseTo(expected, 0)
+  })
+
+  it('通膨 2% → 第 5 年支出 ≈ 原×1.02⁵', () => {
+    const c = makeClient({
+      expenses: [{ label: '房租', amount: 20000, category: 'survival' }],
+      globalInflationRate: 0.02,
+    })
+    const proj = calcCashFlowProjection(c)
+    const expected = 20000 * Math.pow(1.02, 5)
+    expect(proj[5].totalExpenses).toBeCloseTo(expected, 0)
+  })
+
+  it('無成長率時收入每年持平', () => {
+    const c = makeClient({
+      incomes: [{ label: '薪資', amount: 80000, type: 'fixed' }],
+      globalInflationRate: 0,
+    })
+    const proj = calcCashFlowProjection(c)
+    proj.forEach(p => expect(p.totalIncome).toBeCloseTo(80000))
   })
 })
 

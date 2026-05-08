@@ -52,6 +52,40 @@ export function calcCashFlow(c: ClientProfile): CashFlowResult {
   }
 }
 
+// ── 5年現金流 Projection ─────────────────────────────────────
+
+export interface CashFlowProjectionYear {
+  year: number
+  totalIncome: number
+  totalExpenses: number
+  net: number        // 帳面現金流
+  true_: number      // 真實現金流
+  investible: number // 可投資現金流
+}
+
+export function calcCashFlowProjection(c: ClientProfile, years = 5): CashFlowProjectionYear[] {
+  const currentYear = new Date().getFullYear()
+  return Array.from({ length: years + 1 }, (_, y) => {
+    const incomes = c.incomes.map(i => ({
+      ...i,
+      amount: i.amount * Math.pow(1 + (i.growthRate ?? 0), y),
+    }))
+    const expenses = c.expenses.map(e => ({
+      ...e,
+      amount: e.amount * Math.pow(1 + c.globalInflationRate, y),
+    }))
+    const cf = calcCashFlow({ ...c, incomes, expenses })
+    return {
+      year: currentYear + y,
+      totalIncome: cf.totalIncome,
+      totalExpenses: cf.totalExpenses,
+      net: cf.netCashFlow,
+      true_: cf.trueNetCashFlow,
+      investible: cf.investibleCashFlow,
+    }
+  })
+}
+
 // ── 資產 / 負債 ──────────────────────────────────────────────
 
 export function totalAssets(c: ClientProfile): number {

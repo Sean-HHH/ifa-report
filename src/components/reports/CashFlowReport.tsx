@@ -1,16 +1,17 @@
 import { useMemo, useState } from 'react'
-import { Bar } from 'react-chartjs-2'
+import { Bar, Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS, ArcElement, Tooltip, Legend,
   CategoryScale, LinearScale, BarElement, Title,
+  PointElement, LineElement,
 } from 'chart.js'
 import type { ClientProfile } from '../../types/client'
 import { INCOME_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '../../types/client'
 import type { IncomeType, ExpenseCategory } from '../../types/client'
-import { calcCashFlow, fmtNTD, fmtPct } from '../../utils/calculations'
+import { calcCashFlow, calcCashFlowProjection, fmtNTD, fmtPct } from '../../utils/calculations'
 import { StatCard } from './StatCard'
 
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title)
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement)
 
 const INCOME_TYPE_COLORS: Record<IncomeType, string> = {
   fixed: 'bg-blue-100 text-blue-700',
@@ -47,6 +48,7 @@ function NoteTag({ note }: { note?: string }) {
 
 export function CashFlowReport({ client }: { client: ClientProfile }) {
   const cf = useMemo(() => calcCashFlow(client), [client])
+  const projection = useMemo(() => calcCashFlowProjection(client), [client])
 
   const { expenseByCategory: ec, incomeByType: it } = cf
 
@@ -128,8 +130,7 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
       {/* 財務健康指標 */}
       <div>
         <h3 className="text-sm font-semibold text-slate-500 mb-3">財務健康指標</h3>
-        <div className="grid grid-cols-3 gap-3">
-          {/* 收入穩定性 */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-slate-50 rounded-xl p-3">
             <div className="text-xs text-slate-400 mb-1">收入穩定性</div>
             <div className={`text-lg font-bold ${
@@ -141,7 +142,6 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
             </div>
             <div className="text-xs text-slate-400 mt-0.5">固定收入佔比</div>
           </div>
-          {/* 固定支出比 */}
           <div className="bg-slate-50 rounded-xl p-3">
             <div className="text-xs text-slate-400 mb-1">固定支出比</div>
             <div className="text-lg font-bold text-slate-700">
@@ -149,7 +149,6 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
             </div>
             <div className="text-xs text-slate-400 mt-0.5">生存＋責任 ÷ 總收入</div>
           </div>
-          {/* 低意識支出比 */}
           <div className="bg-slate-50 rounded-xl p-3">
             <div className="text-xs text-slate-400 mb-1">低意識支出比</div>
             <div className="text-lg font-bold text-slate-700">
@@ -157,6 +156,85 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
             </div>
             <div className="text-xs text-slate-400 mt-0.5">隱性支出 ÷ 總支出</div>
           </div>
+          <div className="bg-slate-50 rounded-xl p-3">
+            <div className="text-xs text-slate-400 mb-1">月投入比</div>
+            <div className="text-lg font-bold text-blue-600">
+              {cf.investibleCashFlow > 0
+                ? fmtPct(client.monthlyContribution / cf.investibleCashFlow * 100)
+                : '–'}
+            </div>
+            <div className="text-xs text-slate-400 mt-0.5">月定期投入 ÷ 可投資</div>
+          </div>
+        </div>
+      </div>
+
+      {/* 5年現金流 Projection */}
+      <div>
+        <h3 className="text-sm font-semibold text-slate-500 mb-3">
+          5年現金流趨勢（通膨 {fmtPct(client.globalInflationRate * 100)}）
+        </h3>
+        <div className="h-56 mb-4">
+          <Line
+            data={{
+              labels: projection.map(p => String(p.year)),
+              datasets: [
+                {
+                  label: '帳面',
+                  data: projection.map(p => p.net),
+                  borderColor: '#3b82f6',
+                  backgroundColor: 'rgba(59,130,246,0.08)',
+                  tension: 0.3,
+                  pointRadius: 3,
+                },
+                {
+                  label: '真實',
+                  data: projection.map(p => p.true_),
+                  borderColor: '#10b981',
+                  backgroundColor: 'rgba(16,185,129,0.08)',
+                  tension: 0.3,
+                  pointRadius: 3,
+                },
+                {
+                  label: '可投資',
+                  data: projection.map(p => p.investible),
+                  borderColor: '#8b5cf6',
+                  backgroundColor: 'rgba(139,92,246,0.08)',
+                  tension: 0.3,
+                  pointRadius: 3,
+                },
+              ],
+            }}
+            options={{
+              responsive: true,
+              plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
+              scales: { y: { ticks: { callback: (v: number | string) => fmtNTD(Number(v), true) } } },
+            } as never}
+          />
+        </div>
+        {/* 年度表格 */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-slate-600">
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className="text-left py-1.5 pr-3 font-semibold text-slate-400">年份</th>
+                <th className="text-right py-1.5 pr-3 font-semibold text-slate-400">總收入</th>
+                <th className="text-right py-1.5 pr-3 font-semibold text-blue-400">帳面</th>
+                <th className="text-right py-1.5 pr-3 font-semibold text-emerald-500">真實</th>
+                <th className="text-right py-1.5 font-semibold text-violet-500">可投資</th>
+              </tr>
+            </thead>
+            <tbody>
+              {projection.map((p, i) => (
+                <tr key={p.year} className={i % 2 === 0 ? 'bg-slate-50/50' : ''}>
+                  <td className="py-1.5 pr-3 font-medium">{p.year}{i === 0 ? ' (現在)' : ''}</td>
+                  <td className="text-right py-1.5 pr-3">{fmtNTD(p.totalIncome, true)}</td>
+                  <td className="text-right py-1.5 pr-3 text-blue-600">{fmtNTD(p.net, true)}</td>
+                  <td className="text-right py-1.5 pr-3 text-emerald-600">{fmtNTD(p.true_, true)}</td>
+                  <td className="text-right py-1.5 text-violet-600">{fmtNTD(p.investible, true)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 

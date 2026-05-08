@@ -87,6 +87,7 @@ export interface ClientProfile {
   riskProfile: RiskProfile
   customReturnRate: number | null
   monthlyContribution: number
+  globalInflationRate: number  // 全局通膨率，影響支出 projection，預設 0.02
 
   // 人生目標
   currentAge: number
@@ -125,6 +126,7 @@ export function newClient(): ClientProfile {
     riskProfile: 'moderate',
     customReturnRate: null,
     monthlyContribution: 10000,
+    globalInflationRate: 0.02,
     currentAge: 35,
     retirementAge: 60,
     targetMonthlyRetirementIncome: 50000,

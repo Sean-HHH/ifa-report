@@ -5,6 +5,7 @@ import type {
   IncomeType, ExpenseCategory,
 } from '../../types/client'
 import { INVESTMENT_CATEGORY_LABELS, INCOME_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '../../types/client'
+import { calcCashFlow, fmtPct } from '../../utils/calculations'
 
 interface Props {
   client: ClientProfile
@@ -257,9 +258,35 @@ export function InputForm({ client: c, onChange }: Props) {
                 />
                 <span className="text-sm text-slate-400">%（空白 = 依風險預設）</span>
               </div>
+              <div className="flex items-center gap-3 mt-2">
+                <label className="text-sm text-slate-500 w-32">全局通膨率</label>
+                <input
+                  type="number"
+                  className="border border-slate-200 rounded-lg px-3 py-2 w-28 text-sm focus:border-blue-300 outline-none"
+                  step="0.1"
+                  value={(c.globalInflationRate * 100).toFixed(1)}
+                  onChange={e => patch({ globalInflationRate: Number(e.target.value) / 100 })}
+                />
+                <span className="text-sm text-slate-400">%（支出 5 年 projection 適用）</span>
+              </div>
             </Section>
             <Section title="定期投入">
-              <NumField label="每月定期投入" value={c.monthlyContribution} onChange={v => patch({ monthlyContribution: v })} />
+              {(() => {
+                const cf = calcCashFlow(c)
+                const ratio = cf.investibleCashFlow > 0
+                  ? fmtPct(c.monthlyContribution / cf.investibleCashFlow * 100)
+                  : null
+                return (
+                  <div>
+                    <NumField label="每月定期投入" value={c.monthlyContribution} onChange={v => patch({ monthlyContribution: v })} />
+                    {ratio && (
+                      <div className="text-xs text-slate-400 mt-1 ml-1">
+                        = 可投資現金流的 <span className="text-blue-500 font-medium">{ratio}</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </Section>
           </>
         )}

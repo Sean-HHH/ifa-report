@@ -46,6 +46,7 @@ function migrate(raw: any): ClientProfile {
       : (raw.liabilities ? [{ label: '負債', amount: raw.liabilities, type: 'long_term' }] : []),
     incomes,
     expenses,
+    globalInflationRate: raw.globalInflationRate ?? 0.02,
   }
 }
 
