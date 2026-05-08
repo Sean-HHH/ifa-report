@@ -266,6 +266,17 @@ export function InputForm({ client: c, onChange }: Props) {
                 </div>
               ))}
               <AddBtn onClick={addExpense} label="新增支出" />
+              <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-100">
+                <label className="text-xs text-slate-400 w-28 shrink-0">支出通膨預估率</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="border border-slate-200 rounded-lg px-3 py-1.5 w-24 text-sm focus:border-blue-300 outline-none"
+                  value={(c.globalInflationRate * 100).toFixed(1)}
+                  onChange={e => patch({ globalInflationRate: Number(e.target.value) / 100 })}
+                />
+                <span className="text-xs text-slate-400">%（5 年 projection 適用）</span>
+              </div>
             </Section>
 
             <Section title={`資產組合 · 總計 ${(totalAssets / 10000).toFixed(0)} 萬`}>
@@ -345,17 +356,6 @@ export function InputForm({ client: c, onChange }: Props) {
                   onChange={e => patch({ customReturnRate: e.target.value ? Number(e.target.value) / 100 : null })}
                 />
                 <span className="text-sm text-slate-400">%（空白 = 依風險預設）</span>
-              </div>
-              <div className="flex items-center gap-3 mt-2">
-                <label className="text-sm text-slate-500 w-32">全局通膨率</label>
-                <input
-                  type="number"
-                  className="border border-slate-200 rounded-lg px-3 py-2 w-28 text-sm focus:border-blue-300 outline-none"
-                  step="0.1"
-                  value={(c.globalInflationRate * 100).toFixed(1)}
-                  onChange={e => patch({ globalInflationRate: Number(e.target.value) / 100 })}
-                />
-                <span className="text-sm text-slate-400">%（支出 5 年 projection 適用）</span>
               </div>
             </Section>
             <Section title="定期投入">
