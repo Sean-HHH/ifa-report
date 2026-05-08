@@ -26,16 +26,18 @@ function migrate(raw: any): ClientProfile {
   const incomes = (raw.incomes ?? []).map((i: any) => ({
     ...i,
     type: i.type ?? 'fixed',
+    // v4 → v5: 加 frequency（預設 monthly，amount 語意不變）
+    frequency: i.frequency ?? 'monthly',
   }))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const expenses = (raw.expenses ?? []).map((e: any) => {
-    if (e.category !== undefined) return e
-    return {
+    const base = e.category !== undefined ? e : {
       label: e.label,
       amount: e.amount,
       note: e.note,
       category: e.type === 'fixed' ? 'survival' : 'quality',
     }
+    return { ...base, frequency: base.frequency ?? 'monthly' }
   })
 
   return {

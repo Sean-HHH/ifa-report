@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Bar, Line } from 'react-chartjs-2'
+import { Bar, Line, Chart } from 'react-chartjs-2'
 import {
   Chart as ChartJS, ArcElement, Tooltip, Legend,
   CategoryScale, LinearScale, BarElement, Title,
@@ -8,7 +8,7 @@ import {
 import type { ClientProfile } from '../../types/client'
 import { INCOME_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '../../types/client'
 import type { IncomeType, ExpenseCategory } from '../../types/client'
-import { calcCashFlow, calcCashFlowProjection, fmtNTD, fmtPct } from '../../utils/calculations'
+import { calcCashFlow, calcCashFlowProjection, calcMonthlyTimeline, fmtNTD, fmtPct } from '../../utils/calculations'
 import { StatCard } from './StatCard'
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement)
@@ -49,6 +49,7 @@ function NoteTag({ note }: { note?: string }) {
 export function CashFlowReport({ client }: { client: ClientProfile }) {
   const cf = useMemo(() => calcCashFlow(client), [client])
   const projection = useMemo(() => calcCashFlowProjection(client), [client])
+  const timeline = useMemo(() => calcMonthlyTimeline(client), [client])
 
   const { expenseByCategory: ec, incomeByType: it } = cf
 
@@ -256,7 +257,14 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
                 )}
                 <NoteTag note={item.note} />
               </div>
-              <span className="font-medium text-blue-700">{fmtNTD(item.amount, true)}</span>
+              <span className="font-medium text-blue-700">
+                {fmtNTD(item.amount, true)}
+                {item.frequency && item.frequency !== 'monthly' && (
+                  <span className="text-xs text-violet-500 font-normal ml-1">
+                    /{item.frequency === 'quarterly' ? '季' : '年'}
+                  </span>
+                )}
+              </span>
             </div>
           ))}
         </div>
@@ -275,9 +283,106 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
                 <span className="text-slate-600">{e.label}</span>
                 <NoteTag note={e.note} />
               </div>
-              <span className="font-medium text-slate-700">{fmtNTD(e.amount, true)}</span>
+              <span className="font-medium text-slate-700">
+                {fmtNTD(e.amount, true)}
+                {e.frequency && e.frequency !== 'monthly' && (
+                  <span className="text-xs text-orange-400 font-normal ml-1">
+                    /{e.frequency === 'quarterly' ? '季' : '年'}
+                  </span>
+                )}
+              </span>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* 現金流時序分析 */}
+      <div>
+        <h3 className="text-sm font-semibold text-slate-500 mb-3">現金流時序分析</h3>
+
+        {/* KPI 摘要列 */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-3 py-2 text-sm">
+            <span className="text-slate-400 text-xs">低谷月份</span>
+            {timeline.crunchMonths.length === 0
+              ? <span className="text-emerald-600 font-medium text-xs">無</span>
+              : <span className="text-red-600 font-medium text-xs">{timeline.crunchMonths.map(m => `${m}月`).join('、')}</span>
+            }
+          </div>
+          <div className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-3 py-2 text-sm">
+            <span className="text-slate-400 text-xs">需要周轉</span>
+            {timeline.needsBridging
+              ? <span className="text-red-600 font-medium text-xs">⚠ 是（{timeline.crunchMonths.length} 個月）</span>
+              : <span className="text-emerald-600 font-medium text-xs">✓ 不需要</span>
+            }
+          </div>
+          {timeline.worstMonth && (
+            <div className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-3 py-2 text-sm">
+              <span className="text-slate-400 text-xs">最大缺口</span>
+              <span className="text-red-600 font-medium text-xs">
+                {timeline.worstMonth.month}月（−{fmtNTD(timeline.worstMonth.deficit, true)}）
+              </span>
+            </div>
+          )}
+          {timeline.incomeSpread > 0 && (
+            <div className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-3 py-2 text-sm">
+              <span className="text-slate-400 text-xs">收入波動幅度</span>
+              <span className="text-amber-600 font-medium text-xs">{fmtNTD(timeline.incomeSpread, true)}</span>
+            </div>
+          )}
+        </div>
+
+        {/* 12個月混合圖表 */}
+        <div className="h-64">
+          <Chart
+            type="bar"
+            data={{
+              labels: timeline.months.map(m => `${m.month}月`),
+              datasets: [
+                {
+                  type: 'bar' as const,
+                  label: '月收入',
+                  data: timeline.months.map(m => m.income),
+                  backgroundColor: 'rgba(16,185,129,0.65)',
+                  borderRadius: 4,
+                  order: 2,
+                },
+                {
+                  type: 'bar' as const,
+                  label: '月支出',
+                  data: timeline.months.map(m => m.expense),
+                  backgroundColor: timeline.months.map(m =>
+                    m.isCrunch ? 'rgba(239,68,68,0.8)' : 'rgba(251,191,36,0.65)'
+                  ),
+                  borderRadius: 4,
+                  order: 2,
+                },
+                {
+                  type: 'line' as const,
+                  label: '淨現金流',
+                  data: timeline.months.map(m => m.net),
+                  borderColor: '#3b82f6',
+                  backgroundColor: 'rgba(59,130,246,0.08)',
+                  tension: 0.3,
+                  pointRadius: 4,
+                  pointBackgroundColor: timeline.months.map(m => m.isCrunch ? '#ef4444' : '#3b82f6'),
+                  borderWidth: 2,
+                  fill: false,
+                  order: 1,
+                },
+              ],
+            } as never}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'top', labels: { font: { size: 11 } } },
+              },
+              scales: {
+                y: { ticks: { callback: (v: number | string) => fmtNTD(Number(v), true) } },
+              },
+            } as never}
+          />
         </div>
       </div>
     </div>

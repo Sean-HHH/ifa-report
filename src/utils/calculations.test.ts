@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   calcCashFlow, calcAssetGrowth, calcRetirement, calcCashFlowProjection,
+  calcMonthlyTimeline,
   totalAssets, totalLiabilities, netWorth,
   fmtNTD, fmtPct,
 } from './calculations'
@@ -313,6 +314,90 @@ describe('calcCashFlowProjection', () => {
     })
     const proj = calcCashFlowProjection(c)
     proj.forEach(p => expect(p.totalIncome).toBeCloseTo(80000))
+  })
+})
+
+// ── calcMonthlyTimeline ──────────────────────────────────────
+
+describe('calcMonthlyTimeline', () => {
+  it('全月度收支：12 個月金額完全相同', () => {
+    const c = makeClient({
+      incomes: [{ label: '薪資', amount: 80000, type: 'fixed', frequency: 'monthly' }],
+      expenses: [{ label: '房租', amount: 30000, category: 'survival', frequency: 'monthly' }],
+    })
+    const tl = calcMonthlyTimeline(c)
+    expect(tl.months).toHaveLength(12)
+    tl.months.forEach(m => {
+      expect(m.income).toBe(80000)
+      expect(m.expense).toBe(30000)
+      expect(m.net).toBe(50000)
+      expect(m.isCrunch).toBe(false)
+    })
+    expect(tl.needsBridging).toBe(false)
+    expect(tl.incomeSpread).toBe(0)
+  })
+
+  it('年底獎金（annual, 12月）只在 12 月出現', () => {
+    const c = makeClient({
+      incomes: [
+        { label: '薪資', amount: 60000, type: 'fixed', frequency: 'monthly' },
+        { label: '年終', amount: 120000, type: 'one_time', frequency: 'annual', payMonths: [12] },
+      ],
+      expenses: [{ label: '房租', amount: 20000, category: 'survival', frequency: 'monthly' }],
+    })
+    const tl = calcMonthlyTimeline(c)
+    const dec = tl.months.find(m => m.month === 12)!
+    const jan = tl.months.find(m => m.month === 1)!
+    expect(dec.income).toBe(60000 + 120000)
+    expect(jan.income).toBe(60000)
+    expect(tl.incomeSpread).toBe(120000)
+    expect(tl.needsBridging).toBe(false)
+  })
+
+  it('季度收入（quarterly, payMonths [3,6,9,12]）在 4 個月出現', () => {
+    const c = makeClient({
+      incomes: [
+        { label: '季獎', amount: 30000, type: 'variable', frequency: 'quarterly', payMonths: [3, 6, 9, 12] },
+      ],
+      expenses: [],
+    })
+    const tl = calcMonthlyTimeline(c)
+    const withIncome = tl.months.filter(m => m.income > 0)
+    expect(withIncome).toHaveLength(4)
+    withIncome.forEach(m => expect(m.income).toBe(30000))
+    const noIncome = tl.months.filter(m => m.income === 0)
+    expect(noIncome).toHaveLength(8)
+  })
+
+  it('現金流缺口：crunchMonths 正確，needsBridging = true', () => {
+    const c = makeClient({
+      incomes: [{ label: '薪資', amount: 50000, type: 'fixed', frequency: 'monthly' }],
+      expenses: [
+        { label: '日常', amount: 30000, category: 'survival', frequency: 'monthly' },
+        { label: '保費', amount: 60000, category: 'responsibility', frequency: 'annual', payMonths: [3] },
+      ],
+    })
+    const tl = calcMonthlyTimeline(c)
+    expect(tl.needsBridging).toBe(true)
+    expect(tl.crunchMonths).toContain(3)
+    const march = tl.months.find(m => m.month === 3)!
+    // 3月: income 50000, expense 30000+60000=90000, net=-40000
+    expect(march.net).toBe(-40000)
+    expect(march.isCrunch).toBe(true)
+    expect(tl.worstMonth).toEqual({ month: 3, deficit: 40000 })
+  })
+
+  it('frequency 預設（undefined）等同 monthly', () => {
+    const c = makeClient({
+      incomes: [{ label: '薪資', amount: 80000, type: 'fixed' }],
+      expenses: [{ label: '房租', amount: 20000, category: 'survival' }],
+    })
+    const tl = calcMonthlyTimeline(c)
+    tl.months.forEach(m => {
+      expect(m.income).toBe(80000)
+      expect(m.expense).toBe(20000)
+    })
+    expect(tl.needsBridging).toBe(false)
   })
 })
 

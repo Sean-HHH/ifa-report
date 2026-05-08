@@ -6,11 +6,21 @@ export const INCOME_TYPE_LABELS: Record<IncomeType, string> = {
   one_time: '一次性',
 }
 
+export type PayFrequency = 'monthly' | 'quarterly' | 'annual'
+
+export const PAY_FREQUENCY_LABELS: Record<PayFrequency, string> = {
+  monthly: '月',
+  quarterly: '季',
+  annual: '年',
+}
+
 export interface IncomeItem {
   label: string
-  amount: number
+  amount: number        // 每次發生金額（monthly=月額，quarterly=季額，annual=年額）
   type: IncomeType
-  growthRate?: number  // 年成長率，如 0.05 = 5%
+  frequency?: PayFrequency  // 預設 'monthly'
+  payMonths?: number[]      // 發生月份 1-12；monthly 時忽略
+  growthRate?: number       // 年成長率，如 0.05 = 5%
   note?: string
 }
 
@@ -27,8 +37,10 @@ export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
 
 export interface ExpenseItem {
   label: string
-  amount: number
+  amount: number        // 每次發生金額
   category: ExpenseCategory
+  frequency?: PayFrequency  // 預設 'monthly'
+  payMonths?: number[]
   note?: string
 }
 

@@ -1,6 +1,14 @@
 import type { ClientProfile } from '../types/client'
 import { RISK_RETURN } from '../types/client'
-import type { IncomeType, ExpenseCategory } from '../types/client'
+import type { IncomeType, ExpenseCategory, PayFrequency } from '../types/client'
+
+// ── 頻率換算 ─────────────────────────────────────────────────
+
+function toMonthlyEquiv(amount: number, freq: PayFrequency = 'monthly'): number {
+  if (freq === 'quarterly') return (amount * 4) / 12
+  if (freq === 'annual') return amount / 12
+  return amount
+}
 
 // ── 收支分析 ────────────────────────────────────────────────
 
@@ -20,17 +28,17 @@ export interface CashFlowResult {
 }
 
 export function calcCashFlow(c: ClientProfile): CashFlowResult {
-  const totalIncome = c.incomes.reduce((s, i) => s + i.amount, 0)
+  const totalIncome = c.incomes.reduce((s, i) => s + toMonthlyEquiv(i.amount, i.frequency), 0)
 
   const incomeByType: Record<IncomeType, number> = { fixed: 0, variable: 0, one_time: 0 }
-  c.incomes.forEach(i => { incomeByType[i.type] += i.amount })
+  c.incomes.forEach(i => { incomeByType[i.type] += toMonthlyEquiv(i.amount, i.frequency) })
 
   const expenseByCategory: Record<ExpenseCategory, number> = {
     survival: 0, responsibility: 0, quality: 0, growth: 0, hidden: 0, one_time: 0,
   }
-  c.expenses.forEach(e => { expenseByCategory[e.category] += e.amount })
+  c.expenses.forEach(e => { expenseByCategory[e.category] += toMonthlyEquiv(e.amount, e.frequency) })
 
-  const totalExpenses = c.expenses.reduce((s, e) => s + e.amount, 0)
+  const totalExpenses = c.expenses.reduce((s, e) => s + toMonthlyEquiv(e.amount, e.frequency), 0)
   const netCashFlow = totalIncome - totalExpenses
 
   const fixedIncome = incomeByType.fixed
@@ -84,6 +92,70 @@ export function calcCashFlowProjection(c: ClientProfile, years = 5): CashFlowPro
       investible: cf.investibleCashFlow,
     }
   })
+}
+
+// ── 現金流時序分析 ───────────────────────────────────────────
+
+export interface MonthlyMonth {
+  month: number
+  income: number
+  expense: number
+  net: number
+  isCrunch: boolean  // net < 0
+}
+
+export interface MonthlyTimelineResult {
+  months: MonthlyMonth[]
+  crunchMonths: number[]
+  needsBridging: boolean
+  worstMonth: { month: number; deficit: number } | null
+  bestMonth: { month: number; surplus: number } | null
+  incomeSpread: number  // max月收入 - min月收入，衡量收入集中度
+}
+
+function resolvePayMonths(freq: PayFrequency, payMonths?: number[]): number[] | null {
+  if (freq === 'monthly') return null  // 每個月都有
+  if (payMonths && payMonths.length > 0) return payMonths
+  return freq === 'quarterly' ? [3, 6, 9, 12] : [12]
+}
+
+export function calcMonthlyTimeline(c: ClientProfile): MonthlyTimelineResult {
+  const months: MonthlyMonth[] = []
+
+  for (let m = 1; m <= 12; m++) {
+    let income = 0
+    let expense = 0
+
+    for (const item of c.incomes) {
+      const freq = item.frequency ?? 'monthly'
+      const pay = resolvePayMonths(freq, item.payMonths)
+      if (pay === null || pay.includes(m)) income += item.amount
+    }
+
+    for (const item of c.expenses) {
+      const freq = item.frequency ?? 'monthly'
+      const pay = resolvePayMonths(freq, item.payMonths)
+      if (pay === null || pay.includes(m)) expense += item.amount
+    }
+
+    const net = income - expense
+    months.push({ month: m, income, expense, net, isCrunch: net < 0 })
+  }
+
+  const crunchMonths = months.filter(m => m.isCrunch).map(m => m.month)
+  const nets = months.map(m => m.net)
+  const minNet = Math.min(...nets)
+  const maxNet = Math.max(...nets)
+
+  const worstMonth = minNet < 0
+    ? { month: months.find(m => m.net === minNet)!.month, deficit: Math.abs(minNet) }
+    : null
+  const bestMonth = { month: months.find(m => m.net === maxNet)!.month, surplus: maxNet }
+
+  const incomes = months.map(m => m.income)
+  const incomeSpread = Math.max(...incomes) - Math.min(...incomes)
+
+  return { months, crunchMonths, needsBridging: crunchMonths.length > 0, worstMonth, bestMonth, incomeSpread }
 }
 
 // ── 資產 / 負債 ──────────────────────────────────────────────
