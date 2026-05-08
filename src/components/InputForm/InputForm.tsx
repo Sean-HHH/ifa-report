@@ -136,6 +136,19 @@ export function InputForm({ client: c, onChange }: Props) {
                       value={item.amount} onChange={e => updateIncome(i, { amount: Number(e.target.value) })} />
                     <button onClick={() => removeIncome(i)} className="text-slate-300 hover:text-red-400 text-sm px-1">✕</button>
                   </div>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-xs text-slate-400">年成長率</span>
+                    <input
+                      type="number"
+                      placeholder="–"
+                      className="w-20 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
+                      value={item.growthRate !== undefined ? (item.growthRate * 100).toFixed(1) : ''}
+                      onChange={e => updateIncome(i, {
+                        growthRate: e.target.value !== '' ? Number(e.target.value) / 100 : undefined,
+                      })}
+                    />
+                    <span className="text-xs text-slate-400">%（選填）</span>
+                  </div>
                   <NoteField value={item.note} onChange={v => updateIncome(i, { note: v })} />
                 </div>
               ))}

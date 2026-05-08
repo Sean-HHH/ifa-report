@@ -10,6 +10,7 @@ export interface IncomeItem {
   label: string
   amount: number
   type: IncomeType
+  growthRate?: number  // 年成長率，如 0.05 = 5%
   note?: string
 }
 

@@ -14,6 +14,9 @@ export interface CashFlowResult {
   annualSavings: number
   incomeByType: Record<IncomeType, number>
   expenseByCategory: Record<ExpenseCategory, number>
+  incomeStabilityRatio: number  // 固定收入 / 總收入
+  fixedExpenseRatio: number     // (生存+責任) / 總收入
+  hiddenExpenseRatio: number    // 隱性支出 / 總支出
 }
 
 export function calcCashFlow(c: ClientProfile): CashFlowResult {
@@ -35,11 +38,17 @@ export function calcCashFlow(c: ClientProfile): CashFlowResult {
   const investibleCashFlow = trueNetCashFlow - expenseByCategory.quality - expenseByCategory.growth
 
   const savingsRate = totalIncome > 0 ? (netCashFlow / totalIncome) * 100 : 0
+  const incomeStabilityRatio = totalIncome > 0 ? (fixedIncome / totalIncome) * 100 : 0
+  const fixedExpenseRatio = totalIncome > 0
+    ? ((expenseByCategory.survival + expenseByCategory.responsibility) / totalIncome) * 100 : 0
+  const hiddenExpenseRatio = totalExpenses > 0
+    ? (expenseByCategory.hidden / totalExpenses) * 100 : 0
 
   return {
     totalIncome, totalExpenses, netCashFlow, trueNetCashFlow, investibleCashFlow,
     savingsRate, annualSavings: netCashFlow * 12,
     incomeByType, expenseByCategory,
+    incomeStabilityRatio, fixedExpenseRatio, hiddenExpenseRatio,
   }
 }
 

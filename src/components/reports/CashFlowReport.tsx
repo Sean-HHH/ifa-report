@@ -7,7 +7,7 @@ import {
 import type { ClientProfile } from '../../types/client'
 import { INCOME_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '../../types/client'
 import type { IncomeType, ExpenseCategory } from '../../types/client'
-import { calcCashFlow, fmtNTD } from '../../utils/calculations'
+import { calcCashFlow, fmtNTD, fmtPct } from '../../utils/calculations'
 import { StatCard } from './StatCard'
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title)
@@ -125,6 +125,41 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
         </div>
       </div>
 
+      {/* 財務健康指標 */}
+      <div>
+        <h3 className="text-sm font-semibold text-slate-500 mb-3">財務健康指標</h3>
+        <div className="grid grid-cols-3 gap-3">
+          {/* 收入穩定性 */}
+          <div className="bg-slate-50 rounded-xl p-3">
+            <div className="text-xs text-slate-400 mb-1">收入穩定性</div>
+            <div className={`text-lg font-bold ${
+              cf.incomeStabilityRatio >= 70 ? 'text-emerald-600'
+              : cf.incomeStabilityRatio >= 40 ? 'text-amber-500'
+              : 'text-red-500'
+            }`}>
+              {fmtPct(cf.incomeStabilityRatio)}
+            </div>
+            <div className="text-xs text-slate-400 mt-0.5">固定收入佔比</div>
+          </div>
+          {/* 固定支出比 */}
+          <div className="bg-slate-50 rounded-xl p-3">
+            <div className="text-xs text-slate-400 mb-1">固定支出比</div>
+            <div className="text-lg font-bold text-slate-700">
+              {fmtPct(cf.fixedExpenseRatio)}
+            </div>
+            <div className="text-xs text-slate-400 mt-0.5">生存＋責任 ÷ 總收入</div>
+          </div>
+          {/* 低意識支出比 */}
+          <div className="bg-slate-50 rounded-xl p-3">
+            <div className="text-xs text-slate-400 mb-1">低意識支出比</div>
+            <div className="text-lg font-bold text-slate-700">
+              {fmtPct(cf.hiddenExpenseRatio)}
+            </div>
+            <div className="text-xs text-slate-400 mt-0.5">隱性支出 ÷ 總支出</div>
+          </div>
+        </div>
+      </div>
+
       {/* 收入明細 */}
       <div>
         <h3 className="text-sm font-semibold text-slate-500 mb-2">收入明細</h3>
@@ -136,6 +171,11 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
                   {INCOME_TYPE_LABELS[item.type]}
                 </span>
                 <span className="text-slate-700">{item.label}</span>
+                {item.growthRate !== undefined && (
+                  <span className="text-xs text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                    +{fmtPct(item.growthRate * 100)}/年
+                  </span>
+                )}
                 <NoteTag note={item.note} />
               </div>
               <span className="font-medium text-blue-700">{fmtNTD(item.amount, true)}</span>
