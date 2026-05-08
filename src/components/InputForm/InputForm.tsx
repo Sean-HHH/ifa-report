@@ -2,8 +2,9 @@ import { useState } from 'react'
 import type {
   ClientProfile, IncomeItem, ExpenseItem,
   InvestmentItem, InvestmentCategory, LiabilityItem, LiabilityType, MajorExpense, RiskProfile,
+  IncomeType, ExpenseCategory,
 } from '../../types/client'
-import { INVESTMENT_CATEGORY_LABELS } from '../../types/client'
+import { INVESTMENT_CATEGORY_LABELS, INCOME_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '../../types/client'
 
 interface Props {
   client: ClientProfile
@@ -55,14 +56,14 @@ export function InputForm({ client: c, onChange }: Props) {
   // Income
   const updateIncome = (i: number, patch2: Partial<IncomeItem>) =>
     patch({ incomes: c.incomes.map((item, idx) => idx === i ? { ...item, ...patch2 } : item) })
-  const addIncome = () => patch({ incomes: [...c.incomes, { label: '其他收入', amount: 0 }] })
+  const addIncome = () => patch({ incomes: [...c.incomes, { label: '其他收入', amount: 0, type: 'fixed' }] })
   const removeIncome = (i: number) => patch({ incomes: c.incomes.filter((_, idx) => idx !== i) })
 
   // Expense
   const updateExpense = (i: number, patch2: Partial<ExpenseItem>) =>
     patch({ expenses: c.expenses.map((item, idx) => idx === i ? { ...item, ...patch2 } : item) })
-  const addExpense = (type: 'fixed' | 'variable') =>
-    patch({ expenses: [...c.expenses, { label: '新項目', amount: 0, type }] })
+  const addExpense = () =>
+    patch({ expenses: [...c.expenses, { label: '新項目', amount: 0, category: 'survival' }] })
   const removeExpense = (i: number) => patch({ expenses: c.expenses.filter((_, idx) => idx !== i) })
 
   // Asset
@@ -121,6 +122,14 @@ export function InputForm({ client: c, onChange }: Props) {
               {c.incomes.map((item, i) => (
                 <div key={i} className="mb-3 bg-slate-50 rounded-xl p-3">
                   <div className="flex gap-2 items-center">
+                    <select
+                      className="bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs focus:border-blue-300 outline-none shrink-0"
+                      value={item.type}
+                      onChange={e => updateIncome(i, { type: e.target.value as IncomeType })}>
+                      {(Object.keys(INCOME_TYPE_LABELS) as IncomeType[]).map(t => (
+                        <option key={t} value={t}>{INCOME_TYPE_LABELS[t]}</option>
+                      ))}
+                    </select>
                     <input className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
                       value={item.label} onChange={e => updateIncome(i, { label: e.target.value })} placeholder="收入名稱" />
                     <input type="number" className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
@@ -133,42 +142,28 @@ export function InputForm({ client: c, onChange }: Props) {
               <AddBtn onClick={addIncome} label="新增收入" />
             </Section>
 
-            <Section title="月固定支出">
-              {c.expenses.filter(e => e.type === 'fixed').map(item => {
-                const i = c.expenses.indexOf(item)
-                return (
-                  <div key={i} className="mb-3 bg-slate-50 rounded-xl p-3">
-                    <div className="flex gap-2 items-center">
-                      <input className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
-                        value={item.label} onChange={e => updateExpense(i, { label: e.target.value })} />
-                      <input type="number" className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
-                        value={item.amount} onChange={e => updateExpense(i, { amount: Number(e.target.value) })} />
-                      <button onClick={() => removeExpense(i)} className="text-slate-300 hover:text-red-400 text-sm px-1">✕</button>
-                    </div>
-                    <NoteField value={item.note} onChange={v => updateExpense(i, { note: v })} />
+            <Section title="月支出">
+              {c.expenses.map((item, i) => (
+                <div key={i} className="mb-3 bg-slate-50 rounded-xl p-3">
+                  <div className="flex gap-2 items-center">
+                    <select
+                      className="bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs focus:border-blue-300 outline-none shrink-0"
+                      value={item.category}
+                      onChange={e => updateExpense(i, { category: e.target.value as ExpenseCategory })}>
+                      {(Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[]).map(cat => (
+                        <option key={cat} value={cat}>{EXPENSE_CATEGORY_LABELS[cat]}</option>
+                      ))}
+                    </select>
+                    <input className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
+                      value={item.label} onChange={e => updateExpense(i, { label: e.target.value })} />
+                    <input type="number" className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
+                      value={item.amount} onChange={e => updateExpense(i, { amount: Number(e.target.value) })} />
+                    <button onClick={() => removeExpense(i)} className="text-slate-300 hover:text-red-400 text-sm px-1">✕</button>
                   </div>
-                )
-              })}
-              <AddBtn onClick={() => addExpense('fixed')} label="新增固定支出" />
-            </Section>
-
-            <Section title="月變動支出">
-              {c.expenses.filter(e => e.type === 'variable').map(item => {
-                const i = c.expenses.indexOf(item)
-                return (
-                  <div key={i} className="mb-3 bg-slate-50 rounded-xl p-3">
-                    <div className="flex gap-2 items-center">
-                      <input className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
-                        value={item.label} onChange={e => updateExpense(i, { label: e.target.value })} />
-                      <input type="number" className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
-                        value={item.amount} onChange={e => updateExpense(i, { amount: Number(e.target.value) })} />
-                      <button onClick={() => removeExpense(i)} className="text-slate-300 hover:text-red-400 text-sm px-1">✕</button>
-                    </div>
-                    <NoteField value={item.note} onChange={v => updateExpense(i, { note: v })} />
-                  </div>
-                )
-              })}
-              <AddBtn onClick={() => addExpense('variable')} label="新增變動支出" />
+                  <NoteField value={item.note} onChange={v => updateExpense(i, { note: v })} />
+                </div>
+              ))}
+              <AddBtn onClick={addExpense} label="新增支出" />
             </Section>
 
             <Section title={`資產組合 · 總計 ${(totalAssets / 10000).toFixed(0)} 萬`}>

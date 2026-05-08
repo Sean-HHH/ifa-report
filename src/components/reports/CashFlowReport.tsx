@@ -1,16 +1,31 @@
 import { useMemo, useState } from 'react'
-import { Pie, Bar } from 'react-chartjs-2'
+import { Bar } from 'react-chartjs-2'
 import {
   Chart as ChartJS, ArcElement, Tooltip, Legend,
   CategoryScale, LinearScale, BarElement, Title,
 } from 'chart.js'
 import type { ClientProfile } from '../../types/client'
-import { calcCashFlow, fmtNTD, fmtPct } from '../../utils/calculations'
+import { INCOME_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '../../types/client'
+import type { IncomeType, ExpenseCategory } from '../../types/client'
+import { calcCashFlow, fmtNTD } from '../../utils/calculations'
 import { StatCard } from './StatCard'
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title)
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#84cc16', '#f43f5e']
+const INCOME_TYPE_COLORS: Record<IncomeType, string> = {
+  fixed: 'bg-blue-100 text-blue-700',
+  variable: 'bg-orange-100 text-orange-700',
+  one_time: 'bg-slate-100 text-slate-600',
+}
+
+const EXPENSE_CAT_COLORS: Record<ExpenseCategory, string> = {
+  survival:       'bg-red-100 text-red-700',
+  responsibility: 'bg-orange-100 text-orange-700',
+  quality:        'bg-violet-100 text-violet-700',
+  growth:         'bg-emerald-100 text-emerald-700',
+  hidden:         'bg-slate-100 text-slate-600',
+  one_time:       'bg-amber-100 text-amber-700',
+}
 
 function NoteTag({ note }: { note?: string }) {
   const [show, setShow] = useState(false)
@@ -33,34 +48,38 @@ function NoteTag({ note }: { note?: string }) {
 export function CashFlowReport({ client }: { client: ClientProfile }) {
   const cf = useMemo(() => calcCashFlow(client), [client])
 
-  const incomeData = {
-    labels: client.incomes.map(i => i.label),
-    datasets: [{
-      data: client.incomes.map(i => i.amount),
-      backgroundColor: COLORS,
-      borderWidth: 2,
-      borderColor: '#fff',
-    }],
-  }
+  const { expenseByCategory: ec, incomeByType: it } = cf
 
-  const expenseCats = [
-    ...client.expenses.filter(e => e.type === 'fixed'),
-    ...client.expenses.filter(e => e.type === 'variable'),
+  // 三流瀑布圖：固定收入 → 生存 → 責任 → [真實] → 生活品質 → 成長 → [可投資]
+  const waterfallLabels = [
+    '固定收入',
+    '生存支出', '責任支出',
+    '真實現金流',
+    '生活品質', '成長支出',
+    '可投資現金流',
   ]
-
-  const waterfallLabels = ['月收入', ...expenseCats.map(e => e.label), '淨結餘']
-  const waterfallValues = [cf.totalIncome, ...expenseCats.map(e => -e.amount), cf.netCashFlow]
+  const waterfallValues = [
+    it.fixed,
+    -ec.survival,
+    -ec.responsibility,
+    cf.trueNetCashFlow,
+    -ec.quality,
+    -ec.growth,
+    cf.investibleCashFlow,
+  ]
+  const waterfallColors = waterfallValues.map((_, i) => {
+    if (i === 0) return '#3b82f6'                          // 固定收入 — blue
+    if (i === 3) return cf.trueNetCashFlow >= 0 ? '#10b981' : '#ef4444'   // 真實
+    if (i === 6) return cf.investibleCashFlow >= 0 ? '#8b5cf6' : '#ef4444' // 可投資
+    return '#f59e0b'                                        // 扣除項 — orange
+  })
 
   const barData = {
     labels: waterfallLabels,
     datasets: [{
       label: '金額',
       data: waterfallValues,
-      backgroundColor: waterfallValues.map((v, i) => {
-        if (i === 0) return '#3b82f6'
-        if (i === waterfallValues.length - 1) return v >= 0 ? '#10b981' : '#ef4444'
-        return '#f1a500'
-      }),
+      backgroundColor: waterfallColors,
       borderRadius: 6,
     }],
   }
@@ -68,33 +87,41 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
   const barOpts = {
     responsive: true,
     plugins: { legend: { display: false } },
-    scales: { y: { ticks: { callback: (v: number | string) => fmtNTD(Number(v), true) } } },
+    scales: {
+      y: { ticks: { callback: (v: number | string) => fmtNTD(Number(v), true) } },
+    },
   }
 
   return (
     <div className="report-page space-y-6 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
       <h2 className="text-lg font-bold text-slate-800">收支分析</h2>
 
-      {/* 指標卡 */}
+      {/* KPI：三種現金流 */}
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="儲蓄率" value={fmtPct(cf.savingsRate)} color={cf.savingsRate >= 20 ? 'green' : 'orange'} />
-        <StatCard label="月淨現金流" value={fmtNTD(cf.netCashFlow, true)} color={cf.netCashFlow >= 0 ? 'blue' : 'red'} />
-        <StatCard label="年化儲蓄" value={fmtNTD(cf.annualSavings, true)} color="purple" />
+        <StatCard
+          label="帳面現金流"
+          value={fmtNTD(cf.netCashFlow, true)}
+          color={cf.netCashFlow >= 0 ? 'blue' : 'red'}
+        />
+        <StatCard
+          label="真實現金流"
+          value={fmtNTD(cf.trueNetCashFlow, true)}
+          color={cf.trueNetCashFlow >= 0 ? 'green' : 'red'}
+        />
+        <StatCard
+          label="可投資現金流"
+          value={fmtNTD(cf.investibleCashFlow, true)}
+          color={cf.investibleCashFlow >= 0 ? 'purple' : 'red'}
+        />
       </div>
 
-      {/* 圖表：收入圓餅 + 瀑布 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-500 mb-3">收入來源分佈</h3>
-          <div className="h-52 flex items-center justify-center">
-            <Pie data={incomeData} options={{ responsive: true, plugins: { legend: { position: 'right', labels: { font: { size: 11 } } } } }} />
-          </div>
-        </div>
-        <div>
-          <h3 className="text-sm font-semibold text-slate-500 mb-3">月現金流瀑布</h3>
-          <div className="h-52">
-            <Bar data={barData} options={barOpts as never} />
-          </div>
+      {/* 三流瀑布圖 */}
+      <div>
+        <h3 className="text-sm font-semibold text-slate-500 mb-3">
+          逐層扣除：固定收入 → 真實現金流 → 可投資現金流
+        </h3>
+        <div className="h-64">
+          <Bar data={barData} options={barOpts as never} />
         </div>
       </div>
 
@@ -105,6 +132,9 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
           {client.incomes.map((item, i) => (
             <div key={i} className="flex items-center justify-between py-2 px-3 bg-blue-50 rounded-lg text-sm">
               <div className="flex items-center gap-2">
+                <span className={`text-xs px-1.5 py-0.5 rounded ${INCOME_TYPE_COLORS[item.type]}`}>
+                  {INCOME_TYPE_LABELS[item.type]}
+                </span>
                 <span className="text-slate-700">{item.label}</span>
                 <NoteTag note={item.note} />
               </div>
@@ -118,23 +148,20 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
       <div>
         <h3 className="text-sm font-semibold text-slate-500 mb-2">支出明細</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {expenseCats.map((e, i) => (
+          {client.expenses.map((e, i) => (
             <div key={i} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg text-sm">
               <div className="flex items-center gap-2">
+                <span className={`text-xs px-1.5 py-0.5 rounded ${EXPENSE_CAT_COLORS[e.category]}`}>
+                  {EXPENSE_CATEGORY_LABELS[e.category]}
+                </span>
                 <span className="text-slate-600">{e.label}</span>
                 <NoteTag note={e.note} />
               </div>
-              <div className="flex items-center gap-2">
-                <span className={`text-xs px-1.5 py-0.5 rounded ${e.type === 'fixed' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
-                  {e.type === 'fixed' ? '固定' : '變動'}
-                </span>
-                <span className="font-medium text-slate-700">{fmtNTD(e.amount, true)}</span>
-              </div>
+              <span className="font-medium text-slate-700">{fmtNTD(e.amount, true)}</span>
             </div>
           ))}
         </div>
       </div>
-
     </div>
   )
 }

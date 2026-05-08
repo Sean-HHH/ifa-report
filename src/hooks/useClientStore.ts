@@ -21,14 +21,31 @@ function migrate(raw: any): ClientProfile {
     }
   }
 
+  // v3 → v4: income 加 type；expense.type → expense.category
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const incomes = (raw.incomes ?? []).map((i: any) => ({
+    ...i,
+    type: i.type ?? 'fixed',
+  }))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const expenses = (raw.expenses ?? []).map((e: any) => {
+    if (e.category !== undefined) return e
+    return {
+      label: e.label,
+      amount: e.amount,
+      note: e.note,
+      category: e.type === 'fixed' ? 'survival' : 'quality',
+    }
+  })
+
   return {
     ...raw,
     assetItems,
     liabilityItems: Array.isArray(raw.liabilityItems)
       ? raw.liabilityItems
       : (raw.liabilities ? [{ label: '負債', amount: raw.liabilities, type: 'long_term' }] : []),
-    incomes: (raw.incomes ?? []).map((i: object) => ({ ...i })),
-    expenses: (raw.expenses ?? []).map((e: object) => ({ ...e })),
+    incomes,
+    expenses,
   }
 }
 

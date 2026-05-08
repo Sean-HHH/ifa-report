@@ -1,13 +1,33 @@
+export type IncomeType = 'fixed' | 'variable' | 'one_time'
+
+export const INCOME_TYPE_LABELS: Record<IncomeType, string> = {
+  fixed: '固定',
+  variable: '變動',
+  one_time: '一次性',
+}
+
 export interface IncomeItem {
   label: string
   amount: number
+  type: IncomeType
   note?: string
+}
+
+export type ExpenseCategory = 'survival' | 'responsibility' | 'quality' | 'growth' | 'hidden' | 'one_time'
+
+export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
+  survival: '生存',
+  responsibility: '責任',
+  quality: '生活品質',
+  growth: '成長',
+  hidden: '隱性',
+  one_time: '一次性',
 }
 
 export interface ExpenseItem {
   label: string
   amount: number
-  type: 'fixed' | 'variable'
+  category: ExpenseCategory
   note?: string
 }
 
@@ -59,7 +79,7 @@ export interface ClientProfile {
   // 基本財務狀況
   incomes: IncomeItem[]
   expenses: ExpenseItem[]
-  assetItems: InvestmentItem[]   // 全資產（含現金、不動產、投資等）
+  assetItems: InvestmentItem[]
   liabilityItems: LiabilityItem[]
 
   // 投資偏好
@@ -85,13 +105,15 @@ export function newClient(): ClientProfile {
     id: crypto.randomUUID(),
     name: '新客戶',
     updatedAt: new Date().toISOString(),
-    incomes: [{ label: '薪資收入', amount: 80000 }],
+    incomes: [
+      { label: '薪資收入', amount: 80000, type: 'fixed' },
+    ],
     expenses: [
-      { label: '房租/房貸', amount: 20000, type: 'fixed' },
-      { label: '保費', amount: 5000, type: 'fixed', note: '年繳 60,000，此為月均攤' },
-      { label: '飲食', amount: 12000, type: 'variable' },
-      { label: '交通', amount: 5000, type: 'variable' },
-      { label: '娛樂', amount: 5000, type: 'variable' },
+      { label: '房租/房貸', amount: 20000, category: 'survival' },
+      { label: '保費', amount: 5000, category: 'responsibility', note: '年繳 60,000，此為月均攤' },
+      { label: '飲食', amount: 12000, category: 'survival' },
+      { label: '交通', amount: 5000, category: 'survival' },
+      { label: '娛樂', amount: 5000, category: 'quality' },
     ],
     assetItems: [
       { label: '活存 / 定存', amount: 500000, category: 'cash' },

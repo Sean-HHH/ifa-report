@@ -1,26 +1,46 @@
 import type { ClientProfile } from '../types/client'
 import { RISK_RETURN } from '../types/client'
+import type { IncomeType, ExpenseCategory } from '../types/client'
 
 // ── 收支分析 ────────────────────────────────────────────────
 
 export interface CashFlowResult {
   totalIncome: number
-  totalFixed: number
-  totalVariable: number
   totalExpenses: number
-  netCashFlow: number
+  netCashFlow: number          // 帳面：所有收入 − 所有支出
+  trueNetCashFlow: number      // 真實：固定收入 − (生存+責任)
+  investibleCashFlow: number   // 可投資：固定收入 − (生存+責任+生活品質+成長)
   savingsRate: number
   annualSavings: number
+  incomeByType: Record<IncomeType, number>
+  expenseByCategory: Record<ExpenseCategory, number>
 }
 
 export function calcCashFlow(c: ClientProfile): CashFlowResult {
   const totalIncome = c.incomes.reduce((s, i) => s + i.amount, 0)
-  const totalFixed = c.expenses.filter(e => e.type === 'fixed').reduce((s, e) => s + e.amount, 0)
-  const totalVariable = c.expenses.filter(e => e.type === 'variable').reduce((s, e) => s + e.amount, 0)
-  const totalExpenses = totalFixed + totalVariable
+
+  const incomeByType: Record<IncomeType, number> = { fixed: 0, variable: 0, one_time: 0 }
+  c.incomes.forEach(i => { incomeByType[i.type] += i.amount })
+
+  const expenseByCategory: Record<ExpenseCategory, number> = {
+    survival: 0, responsibility: 0, quality: 0, growth: 0, hidden: 0, one_time: 0,
+  }
+  c.expenses.forEach(e => { expenseByCategory[e.category] += e.amount })
+
+  const totalExpenses = c.expenses.reduce((s, e) => s + e.amount, 0)
   const netCashFlow = totalIncome - totalExpenses
+
+  const fixedIncome = incomeByType.fixed
+  const trueNetCashFlow = fixedIncome - expenseByCategory.survival - expenseByCategory.responsibility
+  const investibleCashFlow = trueNetCashFlow - expenseByCategory.quality - expenseByCategory.growth
+
   const savingsRate = totalIncome > 0 ? (netCashFlow / totalIncome) * 100 : 0
-  return { totalIncome, totalFixed, totalVariable, totalExpenses, netCashFlow, savingsRate, annualSavings: netCashFlow * 12 }
+
+  return {
+    totalIncome, totalExpenses, netCashFlow, trueNetCashFlow, investibleCashFlow,
+    savingsRate, annualSavings: netCashFlow * 12,
+    incomeByType, expenseByCategory,
+  }
 }
 
 // ── 資產 / 負債 ──────────────────────────────────────────────
