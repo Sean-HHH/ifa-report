@@ -60,10 +60,38 @@ export const INVESTMENT_CATEGORY_LABELS: Record<InvestmentCategory, string> = {
   other: '其他',
 }
 
+export type AssetCurrency = 'TWD' | 'USD' | 'JPY' | 'EUR' | 'GBP' | 'HKD' | 'USDT' | 'other'
+
+export const ASSET_CURRENCY_LABELS: Record<AssetCurrency, string> = {
+  TWD: 'TWD', USD: 'USD', JPY: 'JPY',
+  EUR: 'EUR', GBP: 'GBP', HKD: 'HKD',
+  USDT: 'USDT', other: '其他',
+}
+
+export type AssetPurpose = 'emergency' | 'growth' | 'income' | 'protection'
+
+export const ASSET_PURPOSE_LABELS: Record<AssetPurpose, string> = {
+  emergency: '緊急備用金', growth: '長期成長',
+  income: '收益型', protection: '保障型',
+}
+
+export interface AssetPeriodSnapshot {
+  periodLabel: string
+  snapshotDate: string
+  openingAssets: number
+  netContribution: number
+  dividendIncome: number
+  fxImpact: number
+  fees: number
+}
+
 export interface InvestmentItem {
   label: string
   amount: number
   category: InvestmentCategory
+  currency?: AssetCurrency
+  institution?: string
+  purpose?: AssetPurpose
   note?: string
 }
 
@@ -100,6 +128,9 @@ export interface ClientProfile {
   customReturnRate: number | null
   monthlyContribution: number
   globalInflationRate: number  // 全局通膨率，影響支出 projection，預設 0.02
+  targetAllocation: Partial<Record<InvestmentCategory, number>>  // 各類別目標 %（0-100）
+  toleranceBand: number   // 容許偏離 %，預設 5
+  assetSnapshot: AssetPeriodSnapshot | null  // Layer 2 期初快照
 
   // 人生目標
   currentAge: number
@@ -139,6 +170,9 @@ export function newClient(): ClientProfile {
     customReturnRate: null,
     monthlyContribution: 10000,
     globalInflationRate: 0.02,
+    targetAllocation: {},
+    toleranceBand: 5,
+    assetSnapshot: null,
     currentAge: 35,
     retirementAge: 60,
     targetMonthlyRetirementIncome: 50000,

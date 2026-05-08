@@ -1,6 +1,6 @@
 import type { ClientProfile } from '../types/client'
-import { RISK_RETURN } from '../types/client'
-import type { IncomeType, ExpenseCategory, PayFrequency } from '../types/client'
+import { RISK_RETURN, INVESTMENT_CATEGORY_LABELS } from '../types/client'
+import type { IncomeType, ExpenseCategory, PayFrequency, InvestmentCategory } from '../types/client'
 
 // ── 頻率換算 ─────────────────────────────────────────────────
 
@@ -264,6 +264,129 @@ export function calcRetirement(c: ClientProfile): RetirementResult {
   }
 
   return { yearsToRetirement, projectedAssetBase, targetAsset, gap, requiredMonthlySavings, suggestedWithdrawalRate, withdrawalYears }
+}
+
+// ── 資產分配分析 ─────────────────────────────────────────────
+
+export interface AssetAllocationResult {
+  byCategory: Partial<Record<InvestmentCategory, { amount: number; pct: number }>>
+  byCurrency: Record<string, { amount: number; pct: number }>
+  byPurpose: Record<string, { amount: number; pct: number }>
+  topHolding: { label: string; amount: number; pct: number } | null
+  isConcentrated: boolean
+}
+
+export function calcAssetAllocation(c: ClientProfile): AssetAllocationResult {
+  const total = totalAssets(c)
+  if (total === 0) {
+    return { byCategory: {}, byCurrency: {}, byPurpose: {}, topHolding: null, isConcentrated: false }
+  }
+
+  const byCategory: Partial<Record<InvestmentCategory, { amount: number; pct: number }>> = {}
+  const byCurrency: Record<string, { amount: number; pct: number }> = {}
+  const byPurpose: Record<string, { amount: number; pct: number }> = {}
+
+  for (const item of c.assetItems) {
+    const cat = item.category
+    byCategory[cat] = { amount: (byCategory[cat]?.amount ?? 0) + item.amount, pct: 0 }
+
+    const cur = item.currency ?? 'TWD'
+    byCurrency[cur] = { amount: (byCurrency[cur]?.amount ?? 0) + item.amount, pct: 0 }
+
+    const pur = item.purpose ?? 'growth'
+    byPurpose[pur] = { amount: (byPurpose[pur]?.amount ?? 0) + item.amount, pct: 0 }
+  }
+
+  for (const k of Object.keys(byCategory) as InvestmentCategory[]) {
+    byCategory[k]!.pct = (byCategory[k]!.amount / total) * 100
+  }
+  for (const k of Object.keys(byCurrency)) {
+    byCurrency[k].pct = (byCurrency[k].amount / total) * 100
+  }
+  for (const k of Object.keys(byPurpose)) {
+    byPurpose[k].pct = (byPurpose[k].amount / total) * 100
+  }
+
+  const topItem = c.assetItems.reduce<typeof c.assetItems[0] | null>(
+    (best, item) => (!best || item.amount > best.amount ? item : best), null
+  )
+  const topHolding = topItem
+    ? { label: topItem.label, amount: topItem.amount, pct: (topItem.amount / total) * 100 }
+    : null
+
+  return { byCategory, byCurrency, byPurpose, topHolding, isConcentrated: (topHolding?.pct ?? 0) > 30 }
+}
+
+// ── 資產期間變化 ─────────────────────────────────────────────
+
+export interface AssetPeriodChangeResult {
+  periodLabel: string
+  openingAssets: number
+  netContribution: number
+  investmentGain: number
+  dividendIncome: number
+  fxImpact: number
+  fees: number
+  closingAssets: number
+  totalChange: number
+  totalChangePct: number
+}
+
+export function calcAssetPeriodChange(c: ClientProfile): AssetPeriodChangeResult | null {
+  if (!c.assetSnapshot) return null
+  const { periodLabel, openingAssets, netContribution, dividendIncome, fxImpact, fees } = c.assetSnapshot
+  const closingAssets = totalAssets(c)
+  const investmentGain = closingAssets - openingAssets - netContribution - dividendIncome - fxImpact + fees
+  const totalChange = closingAssets - openingAssets
+  const totalChangePct = openingAssets > 0 ? (totalChange / openingAssets) * 100 : 0
+  return { periodLabel, openingAssets, netContribution, investmentGain, dividendIncome, fxImpact, fees, closingAssets, totalChange, totalChangePct }
+}
+
+// ── 配置偏離分析 ─────────────────────────────────────────────
+
+export interface AssetDeviationItem {
+  category: InvestmentCategory
+  label: string
+  targetPct: number
+  actualPct: number
+  deviation: number
+  deviationAmount: number
+  withinTolerance: boolean
+  action: 'overweight' | 'underweight' | 'ok'
+}
+
+export interface AssetDeviationResult {
+  items: AssetDeviationItem[]
+  hasTargets: boolean
+  needsRebalance: boolean
+  rebalancePriority: AssetDeviationItem[]
+}
+
+export function calcAssetDeviation(c: ClientProfile): AssetDeviationResult {
+  const targets = c.targetAllocation
+  const hasTargets = Object.keys(targets).length > 0
+  if (!hasTargets) return { items: [], hasTargets: false, needsRebalance: false, rebalancePriority: [] }
+
+  const total = totalAssets(c)
+  const alloc = calcAssetAllocation(c)
+
+  const categories = Object.keys(targets) as InvestmentCategory[]
+  const items: AssetDeviationItem[] = categories.map(cat => {
+    const targetPct = targets[cat] ?? 0
+    const actualPct = alloc.byCategory[cat]?.pct ?? 0
+    const deviation = actualPct - targetPct
+    const deviationAmount = (deviation / 100) * total
+    const withinTolerance = Math.abs(deviation) <= c.toleranceBand
+    const action = withinTolerance ? 'ok' : deviation > 0 ? 'overweight' : 'underweight'
+    return { category: cat, label: INVESTMENT_CATEGORY_LABELS[cat], targetPct, actualPct, deviation, deviationAmount, withinTolerance, action }
+  })
+
+  const needsRebalance = items.some(item => !item.withinTolerance)
+  const rebalancePriority = items
+    .filter(item => !item.withinTolerance)
+    .sort((a, b) => Math.abs(b.deviation) - Math.abs(a.deviation))
+
+  return { items, hasTargets: true, needsRebalance, rebalancePriority }
 }
 
 // ── 格式化工具 ────────────────────────────────────────────────

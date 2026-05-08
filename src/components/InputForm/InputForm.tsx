@@ -2,9 +2,12 @@ import { useState } from 'react'
 import type {
   ClientProfile, IncomeItem, ExpenseItem,
   InvestmentItem, InvestmentCategory, LiabilityItem, LiabilityType, MajorExpense, RiskProfile,
-  IncomeType, ExpenseCategory, PayFrequency,
+  IncomeType, ExpenseCategory, PayFrequency, AssetCurrency, AssetPurpose, AssetPeriodSnapshot,
 } from '../../types/client'
-import { INVESTMENT_CATEGORY_LABELS, INCOME_TYPE_LABELS, EXPENSE_CATEGORY_LABELS, PAY_FREQUENCY_LABELS } from '../../types/client'
+import {
+  INVESTMENT_CATEGORY_LABELS, INCOME_TYPE_LABELS, EXPENSE_CATEGORY_LABELS, PAY_FREQUENCY_LABELS,
+  ASSET_CURRENCY_LABELS, ASSET_PURPOSE_LABELS,
+} from '../../types/client'
 import { calcCashFlow, fmtPct } from '../../utils/calculations'
 
 interface Props {
@@ -297,10 +300,69 @@ export function InputForm({ client: c, onChange }: Props) {
                       value={item.amount} onChange={e => updateAsset(i, { amount: Number(e.target.value) })} />
                     <button onClick={() => removeAsset(i)} className="text-slate-300 hover:text-red-400 text-sm px-1">✕</button>
                   </div>
+                  <div className="flex flex-wrap gap-2 mt-1.5">
+                    <select
+                      className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
+                      value={item.currency ?? 'TWD'}
+                      onChange={e => updateAsset(i, { currency: e.target.value as AssetCurrency })}>
+                      {(Object.keys(ASSET_CURRENCY_LABELS) as AssetCurrency[]).map(cur => (
+                        <option key={cur} value={cur}>{ASSET_CURRENCY_LABELS[cur]}</option>
+                      ))}
+                    </select>
+                    <input
+                      className="flex-1 min-w-[100px] bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
+                      value={item.institution ?? ''}
+                      onChange={e => updateAsset(i, { institution: e.target.value })}
+                      placeholder="帳戶 / 機構（選填）" />
+                    <select
+                      className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
+                      value={item.purpose ?? 'growth'}
+                      onChange={e => updateAsset(i, { purpose: e.target.value as AssetPurpose })}>
+                      {(Object.keys(ASSET_PURPOSE_LABELS) as AssetPurpose[]).map(p => (
+                        <option key={p} value={p}>{ASSET_PURPOSE_LABELS[p]}</option>
+                      ))}
+                    </select>
+                  </div>
                   <NoteField value={item.note} onChange={v => updateAsset(i, { note: v })} />
                 </div>
               ))}
               <AddBtn onClick={addAsset} label="新增資產項目" />
+            </Section>
+
+            <Section title="期間比較（資產變化）">
+              {(() => {
+                const snap = c.assetSnapshot
+                const patchSnap = (partial: Partial<AssetPeriodSnapshot>) =>
+                  patch({ assetSnapshot: { periodLabel: '', snapshotDate: '', openingAssets: 0, netContribution: 0, dividendIncome: 0, fxImpact: 0, fees: 0, ...snap, ...partial } })
+                return (
+                  <div className="space-y-2">
+                    <div className="flex gap-2 flex-wrap">
+                      <input
+                        className="flex-1 min-w-[140px] bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
+                        value={snap?.periodLabel ?? ''}
+                        onChange={e => patchSnap({ periodLabel: e.target.value })}
+                        placeholder="期間名稱（如 2025 Q1）" />
+                      <input
+                        type="date"
+                        className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
+                        value={snap?.snapshotDate ?? ''}
+                        onChange={e => patchSnap({ snapshotDate: e.target.value })} />
+                    </div>
+                    <SnapField label="期初總資產" value={snap?.openingAssets ?? 0} onChange={v => patchSnap({ openingAssets: v })} />
+                    <SnapField label="本期淨投入" value={snap?.netContribution ?? 0} onChange={v => patchSnap({ netContribution: v })} hint="正=投入，負=提領" />
+                    <SnapField label="配息 / 利息" value={snap?.dividendIncome ?? 0} onChange={v => patchSnap({ dividendIncome: v })} />
+                    <SnapField label="費用 / 稅務" value={snap?.fees ?? 0} onChange={v => patchSnap({ fees: v })} hint="正數代表支出" />
+                    <SnapField label="匯率影響" value={snap?.fxImpact ?? 0} onChange={v => patchSnap({ fxImpact: v })} hint="正=利得，負=損失" />
+                    {snap && (
+                      <button
+                        onClick={() => patch({ assetSnapshot: null })}
+                        className="text-xs text-red-400 hover:text-red-600 mt-1">
+                        清除快照
+                      </button>
+                    )}
+                  </div>
+                )
+              })()}
             </Section>
 
             <Section title={`負債 · 總計 ${(totalLiab / 10000).toFixed(0)} 萬`}>
@@ -376,6 +438,42 @@ export function InputForm({ client: c, onChange }: Props) {
                 )
               })()}
             </Section>
+            <Section title="目標配置">
+              <div className="space-y-1.5">
+                {(Object.keys(INVESTMENT_CATEGORY_LABELS) as InvestmentCategory[]).map(cat => {
+                  const val = c.targetAllocation[cat]
+                  return (
+                    <div key={cat} className="flex items-center gap-3">
+                      <label className="text-sm text-slate-500 w-24 shrink-0">{INVESTMENT_CATEGORY_LABELS[cat]}</label>
+                      <input
+                        type="number"
+                        min={0} max={100} step={1}
+                        placeholder="–"
+                        className="border border-slate-200 rounded-lg px-3 py-1.5 w-20 text-sm focus:border-blue-300 outline-none"
+                        value={val !== undefined ? val : ''}
+                        onChange={e => {
+                          const next = { ...c.targetAllocation }
+                          if (e.target.value === '') { delete next[cat] } else { next[cat] = Number(e.target.value) }
+                          patch({ targetAllocation: next })
+                        }}
+                      />
+                      <span className="text-xs text-slate-400">%</span>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-100">
+                <label className="text-sm text-slate-500 w-24 shrink-0">容許偏離</label>
+                <input
+                  type="number"
+                  min={0} max={50} step={1}
+                  className="border border-slate-200 rounded-lg px-3 py-1.5 w-20 text-sm focus:border-blue-300 outline-none"
+                  value={c.toleranceBand}
+                  onChange={e => patch({ toleranceBand: Number(e.target.value) })}
+                />
+                <span className="text-xs text-slate-400">%（超過此幅度才建議再平衡）</span>
+              </div>
+            </Section>
           </>
         )}
 
@@ -436,5 +534,16 @@ function AddBtn({ onClick, label }: { onClick: () => void; label: string }) {
       className="text-sm text-blue-400 hover:text-blue-600 flex items-center gap-1 mt-1 transition-colors">
       + {label}
     </button>
+  )
+}
+
+function SnapField({ label, value, onChange, hint }: { label: string; value: number; onChange: (v: number) => void; hint?: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <label className="text-sm text-slate-500 w-28 shrink-0">{label}</label>
+      <input type="number" className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm w-36 focus:border-blue-300 outline-none"
+        value={value} onChange={e => onChange(Number(e.target.value))} />
+      {hint && <span className="text-xs text-slate-400">{hint}</span>}
+    </div>
   )
 }

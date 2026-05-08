@@ -40,15 +40,27 @@ function migrate(raw: any): ClientProfile {
     return { ...base, frequency: base.frequency ?? 'monthly' }
   })
 
+  // v5 → v6: assetItems 加 currency/institution/purpose；加 targetAllocation/toleranceBand/assetSnapshot
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const migratedAssetItems = assetItems.map((item: any) => ({
+    currency: 'TWD',
+    institution: '',
+    purpose: 'growth',
+    ...item,
+  }))
+
   return {
     ...raw,
-    assetItems,
+    assetItems: migratedAssetItems,
     liabilityItems: Array.isArray(raw.liabilityItems)
       ? raw.liabilityItems
       : (raw.liabilities ? [{ label: '負債', amount: raw.liabilities, type: 'long_term' }] : []),
     incomes,
     expenses,
     globalInflationRate: raw.globalInflationRate ?? 0.02,
+    targetAllocation: raw.targetAllocation ?? {},
+    toleranceBand: raw.toleranceBand ?? 5,
+    assetSnapshot: raw.assetSnapshot ?? null,
   }
 }
 
