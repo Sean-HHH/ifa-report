@@ -1,0 +1,90 @@
+import type { ClientProfile, IncomeItem, IncomeType, PayFrequency } from '../../../types/client'
+import { INCOME_TYPE_LABELS, PAY_FREQUENCY_LABELS } from '../../../types/client'
+import { Section, AddBtn, NoteField } from '../shared'
+import { quarterlyMonths, quarterlyAnchor, handleFrequencyChange } from '../utils'
+
+interface Props {
+  c: ClientProfile
+  patch: (partial: Partial<ClientProfile>) => void
+}
+
+export function IncomeTab({ c, patch }: Props) {
+  const update = (i: number, p: Partial<IncomeItem>) =>
+    patch({ incomes: c.incomes.map((item, idx) => idx === i ? { ...item, ...p } : item) })
+  const add = () => patch({ incomes: [...c.incomes, { label: '其他收入', amount: 0, type: 'fixed' }] })
+  const remove = (i: number) => patch({ incomes: c.incomes.filter((_, idx) => idx !== i) })
+
+  return (
+    <Section title="收入項目">
+      {c.incomes.map((item, i) => (
+        <div key={i} className="mb-3 bg-slate-50 rounded-xl p-3">
+          <div className="flex gap-2 items-center">
+            <select
+              className="bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs focus:border-blue-300 outline-none shrink-0"
+              value={item.type}
+              onChange={e => update(i, { type: e.target.value as IncomeType })}>
+              {(Object.keys(INCOME_TYPE_LABELS) as IncomeType[]).map(t => (
+                <option key={t} value={t}>{INCOME_TYPE_LABELS[t]}</option>
+              ))}
+            </select>
+            <input className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
+              value={item.label} onChange={e => update(i, { label: e.target.value })} placeholder="收入名稱" />
+            <input type="number" className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
+              value={item.amount} onChange={e => update(i, { amount: Number(e.target.value) })} />
+            <button onClick={() => remove(i)} className="text-slate-300 hover:text-red-400 text-sm px-1">✕</button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+            <span className="text-xs text-slate-400">頻率</span>
+            <select
+              className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
+              value={item.frequency ?? 'monthly'}
+              onChange={e => update(i, handleFrequencyChange(e.target.value as PayFrequency))}>
+              {(Object.keys(PAY_FREQUENCY_LABELS) as PayFrequency[]).map(f => (
+                <option key={f} value={f}>{PAY_FREQUENCY_LABELS[f]}</option>
+              ))}
+            </select>
+            {(item.frequency === 'quarterly') && (
+              <>
+                <span className="text-xs text-slate-400">發生月</span>
+                <select
+                  className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
+                  value={quarterlyAnchor(item.payMonths)}
+                  onChange={e => update(i, { payMonths: quarterlyMonths(Number(e.target.value)) })}>
+                  <option value={1}>1/4/7/10月</option>
+                  <option value={2}>2/5/8/11月</option>
+                  <option value={3}>3/6/9/12月</option>
+                </select>
+              </>
+            )}
+            {(item.frequency === 'annual') && (
+              <>
+                <span className="text-xs text-slate-400">發生月</span>
+                <select
+                  className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
+                  value={item.payMonths?.[0] ?? 12}
+                  onChange={e => update(i, { payMonths: [Number(e.target.value)] })}>
+                  {Array.from({ length: 12 }, (_, idx) => (
+                    <option key={idx + 1} value={idx + 1}>{idx + 1}月</option>
+                  ))}
+                </select>
+              </>
+            )}
+            <span className="text-xs text-slate-400 ml-1">年成長率</span>
+            <input
+              type="number"
+              placeholder="–"
+              className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
+              value={item.growthRate !== undefined ? (item.growthRate * 100).toFixed(1) : ''}
+              onChange={e => update(i, {
+                growthRate: e.target.value !== '' ? Number(e.target.value) / 100 : undefined,
+              })}
+            />
+            <span className="text-xs text-slate-400">%</span>
+          </div>
+          <NoteField value={item.note} onChange={v => update(i, { note: v })} />
+        </div>
+      ))}
+      <AddBtn onClick={add} label="新增收入" />
+    </Section>
+  )
+}

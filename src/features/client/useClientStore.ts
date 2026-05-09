@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
-import type { ClientProfile } from '../types/client'
-import { newClient } from '../types/client'
+import type { ClientProfile } from '../../types/client'
+import { newClient } from '../../types/client'
 
 const STORAGE_KEY = 'ifa_clients'
 const ACTIVE_KEY = 'ifa_active_client'
