@@ -89,11 +89,23 @@ export function InputForm({ client: c, onChange, rates }: Props) {
   const removeExpense = (i: number) => patch({ expenses: c.expenses.filter((_, idx) => idx !== i) })
 
   // Asset
+  const TRADEABLE = new Set<InvestmentCategory>(['stock', 'fund', 'bond', 'crypto'])
+
   const updateAsset = (i: number, patch2: Partial<InvestmentItem>) =>
     patch({ assetItems: c.assetItems.map((item, idx) => idx === i ? { ...item, ...patch2 } : item) })
   const addAsset = () =>
     patch({ assetItems: [...c.assetItems, { label: '新項目', amount: 0, category: 'cash' }] })
   const removeAsset = (i: number) => patch({ assetItems: c.assetItems.filter((_, idx) => idx !== i) })
+
+  const handleTradeableField = (i: number, field: 'unitPrice' | 'units', value: number) => {
+    const item = c.assetItems[i]
+    const unitPrice = field === 'unitPrice' ? value : (item.unitPrice ?? 0)
+    const units     = field === 'units'     ? value : (item.units     ?? 0)
+    updateAsset(i, {
+      [field]: value,
+      amount: unitPrice > 0 && units > 0 ? unitPrice * units : item.amount,
+    })
+  }
 
   // Liability
   const updateLiability = (i: number, patch2: Partial<LiabilityItem>) =>
@@ -285,58 +297,90 @@ export function InputForm({ client: c, onChange, rates }: Props) {
             </Section>
 
             <Section title={`資產組合 · 總計 ${(totalAssets / 10000).toFixed(0)} 萬`}>
-              {c.assetItems.map((item, i) => (
-                <div key={i} className="mb-3 bg-slate-50 rounded-xl p-3">
-                  <div className="flex gap-2 items-center flex-wrap">
-                    <select
-                      className="bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm focus:border-blue-300 outline-none"
-                      value={item.category}
-                      onChange={e => updateAsset(i, { category: e.target.value as InvestmentCategory })}>
-                      {(Object.keys(INVESTMENT_CATEGORY_LABELS) as InvestmentCategory[]).map(cat => (
-                        <option key={cat} value={cat}>{INVESTMENT_CATEGORY_LABELS[cat]}</option>
-                      ))}
-                    </select>
-                    <input className="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
-                      value={item.label} onChange={e => updateAsset(i, { label: e.target.value })} placeholder="項目名稱" />
-                    <div className="flex flex-col">
-                      <input type="number" className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
-                        value={item.amount}
-                        placeholder={`金額（${item.currency ?? 'TWD'}）`}
-                        onChange={e => updateAsset(i, { amount: Number(e.target.value) })} />
-                      {item.currency && item.currency !== 'TWD' && rates && item.amount > 0 && (
-                        <span className="text-xs text-slate-400 mt-0.5 text-right">
-                          ≈ {fmtAmount(convertCurrency(item.amount, item.currency, 'TWD', rates), 'TWD', true)} TWD
-                        </span>
+              {c.assetItems.map((item, i) => {
+                const isTradeable = TRADEABLE.has(item.category)
+                return (
+                  <div key={i} className="mb-3 bg-slate-50 rounded-xl p-3">
+                    <div className="flex gap-2 items-center flex-wrap">
+                      <select
+                        className="bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm focus:border-blue-300 outline-none"
+                        value={item.category}
+                        onChange={e => updateAsset(i, { category: e.target.value as InvestmentCategory })}>
+                        {(Object.keys(INVESTMENT_CATEGORY_LABELS) as InvestmentCategory[]).map(cat => (
+                          <option key={cat} value={cat}>{INVESTMENT_CATEGORY_LABELS[cat]}</option>
+                        ))}
+                      </select>
+                      <input className="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
+                        value={item.label} onChange={e => updateAsset(i, { label: e.target.value })}
+                        placeholder={isTradeable ? '標的名稱 / 代碼' : '項目名稱'} />
+                      {!isTradeable && (
+                        <div className="flex flex-col">
+                          <input type="number" className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
+                            value={item.amount}
+                            placeholder={`金額（${item.currency ?? 'TWD'}）`}
+                            onChange={e => updateAsset(i, { amount: Number(e.target.value) })} />
+                          {item.currency && item.currency !== 'TWD' && rates && item.amount > 0 && (
+                            <span className="text-xs text-slate-400 mt-0.5 text-right">
+                              ≈ {fmtAmount(convertCurrency(item.amount, item.currency, 'TWD', rates), 'TWD', true)} TWD
+                            </span>
+                          )}
+                        </div>
                       )}
+                      <button onClick={() => removeAsset(i)} className="text-slate-300 hover:text-red-400 text-sm px-1">✕</button>
                     </div>
-                    <button onClick={() => removeAsset(i)} className="text-slate-300 hover:text-red-400 text-sm px-1">✕</button>
+                    {isTradeable && (
+                      <div className="flex flex-wrap gap-2 items-center mt-1.5">
+                        <input type="number" min={0} step="any"
+                          className="w-28 bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm focus:border-blue-300 outline-none"
+                          value={item.unitPrice ?? ''}
+                          onChange={e => handleTradeableField(i, 'unitPrice', Number(e.target.value))}
+                          placeholder={`單位價（${item.currency ?? 'TWD'}）`} />
+                        <span className="text-xs text-slate-400">×</span>
+                        <input type="number" min={0} step="any"
+                          className="w-24 bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm focus:border-blue-300 outline-none"
+                          value={item.units ?? ''}
+                          onChange={e => handleTradeableField(i, 'units', Number(e.target.value))}
+                          placeholder="股數 / 單位" />
+                        <span className="text-xs text-slate-400">=</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-slate-600">
+                            {fmtAmount(item.amount, item.currency ?? 'TWD')}
+                          </span>
+                          {item.currency && item.currency !== 'TWD' && rates && item.amount > 0 && (
+                            <span className="text-xs text-slate-400">
+                              ≈ {fmtAmount(convertCurrency(item.amount, item.currency, 'TWD', rates), 'TWD', true)} TWD
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2 mt-1.5">
+                      <select
+                        className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
+                        value={item.currency ?? 'TWD'}
+                        onChange={e => updateAsset(i, { currency: e.target.value as AssetCurrency })}>
+                        {(Object.keys(ASSET_CURRENCY_LABELS) as AssetCurrency[]).map(cur => (
+                          <option key={cur} value={cur}>{ASSET_CURRENCY_LABELS[cur]}</option>
+                        ))}
+                      </select>
+                      <input
+                        className="flex-1 min-w-[100px] bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
+                        value={item.institution ?? ''}
+                        onChange={e => updateAsset(i, { institution: e.target.value })}
+                        placeholder="帳戶 / 機構（選填）" />
+                      <select
+                        className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
+                        value={item.purpose ?? 'growth'}
+                        onChange={e => updateAsset(i, { purpose: e.target.value as AssetPurpose })}>
+                        {(Object.keys(ASSET_PURPOSE_LABELS) as AssetPurpose[]).map(p => (
+                          <option key={p} value={p}>{ASSET_PURPOSE_LABELS[p]}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <NoteField value={item.note} onChange={v => updateAsset(i, { note: v })} />
                   </div>
-                  <div className="flex flex-wrap gap-2 mt-1.5">
-                    <select
-                      className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
-                      value={item.currency ?? 'TWD'}
-                      onChange={e => updateAsset(i, { currency: e.target.value as AssetCurrency })}>
-                      {(Object.keys(ASSET_CURRENCY_LABELS) as AssetCurrency[]).map(cur => (
-                        <option key={cur} value={cur}>{ASSET_CURRENCY_LABELS[cur]}</option>
-                      ))}
-                    </select>
-                    <input
-                      className="flex-1 min-w-[100px] bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
-                      value={item.institution ?? ''}
-                      onChange={e => updateAsset(i, { institution: e.target.value })}
-                      placeholder="帳戶 / 機構（選填）" />
-                    <select
-                      className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
-                      value={item.purpose ?? 'growth'}
-                      onChange={e => updateAsset(i, { purpose: e.target.value as AssetPurpose })}>
-                      {(Object.keys(ASSET_PURPOSE_LABELS) as AssetPurpose[]).map(p => (
-                        <option key={p} value={p}>{ASSET_PURPOSE_LABELS[p]}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <NoteField value={item.note} onChange={v => updateAsset(i, { note: v })} />
-                </div>
-              ))}
+                )
+              })}
               <AddBtn onClick={addAsset} label="新增資產項目" />
             </Section>
 
