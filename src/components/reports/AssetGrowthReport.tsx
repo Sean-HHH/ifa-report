@@ -5,16 +5,19 @@ import {
   LineElement, Title, Tooltip, Legend, Filler,
 } from 'chart.js'
 import type { ClientProfile } from '../../types/client'
-import { calcAssetGrowth, fmtNTD, fmtPct, netWorth } from '../../utils/calculations'
+import { calcAssetGrowth, convertCurrency, fmtAmount, fmtPct, netWorth } from '../../utils/calculations'
 import { RISK_RETURN } from '../../types/client'
+import type { FxRates } from '../../services/exchangeRate'
 import { StatCard } from './StatCard'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
-export function AssetGrowthReport({ client }: { client: ClientProfile }) {
+export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { client: ClientProfile; rates: FxRates; reportCurrency: string }) {
   const data = useMemo(() => calcAssetGrowth(client), [client])
   const rates = RISK_RETURN[client.riskProfile]
   const nw = useMemo(() => netWorth(client), [client])
+  const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, fxRates)
+  const disp = (n: number, compact = false) => fmtAmount(rc(n), reportCurrency, compact)
 
   const labels = data.map(d => `${d.age}歲`)
   const contributed = data.map(d => nw + d.contributed)
@@ -70,13 +73,13 @@ export function AssetGrowthReport({ client }: { client: ClientProfile }) {
       tooltip: {
         callbacks: {
           label: (ctx: { dataset: { label?: string }, parsed: { y: number } }) =>
-            `${ctx.dataset.label}: ${fmtNTD(ctx.parsed.y, true)}`,
+            `${ctx.dataset.label}: ${disp(ctx.parsed.y, true)}`,
         },
       },
     },
     scales: {
       y: {
-        ticks: { callback: (v: number | string) => fmtNTD(Number(v), true) },
+        ticks: { callback: (v: number | string) => disp(Number(v), true) },
       },
     },
   }
@@ -88,9 +91,9 @@ export function AssetGrowthReport({ client }: { client: ClientProfile }) {
       <h2 className="text-lg font-bold text-slate-800">資產成長路徑</h2>
 
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label={`保守情境 (${fmtPct(rates.conservative * 100)})`} value={fmtNTD(last?.conservative ?? 0, true)} color="orange" />
-        <StatCard label={`基準情境 (${fmtPct(rates.base * 100)})`} value={fmtNTD(last?.base ?? 0, true)} color="blue" />
-        <StatCard label={`積極情境 (${fmtPct(rates.aggressive * 100)})`} value={fmtNTD(last?.aggressive ?? 0, true)} color="green" />
+        <StatCard label={`保守情境 (${fmtPct(rates.conservative * 100)})`} value={disp(last?.conservative ?? 0, true)} color="orange" />
+        <StatCard label={`基準情境 (${fmtPct(rates.base * 100)})`} value={disp(last?.base ?? 0, true)} color="blue" />
+        <StatCard label={`積極情境 (${fmtPct(rates.aggressive * 100)})`} value={disp(last?.aggressive ?? 0, true)} color="green" />
       </div>
 
       <div className="h-80">
@@ -105,8 +108,8 @@ export function AssetGrowthReport({ client }: { client: ClientProfile }) {
         </div>
         <div className="bg-slate-50 rounded-xl p-4">
           <div className="text-slate-500 mb-1">每月定期投入</div>
-          <div className="text-2xl font-bold text-slate-800">{fmtNTD(client.monthlyContribution, true)}</div>
-          <div className="text-slate-400 text-xs mt-1">年化 {fmtNTD(client.monthlyContribution * 12, true)}</div>
+          <div className="text-2xl font-bold text-slate-800">{disp(client.monthlyContribution, true)}</div>
+          <div className="text-slate-400 text-xs mt-1">年化 {disp(client.monthlyContribution * 12, true)}</div>
         </div>
       </div>
 
@@ -119,7 +122,7 @@ export function AssetGrowthReport({ client }: { client: ClientProfile }) {
                 <span className="text-red-700">{e.label}</span>
                 <div className="flex gap-3">
                   <span className="text-red-500">{e.year} 年</span>
-                  <span className="font-medium text-red-700">-{fmtNTD(e.amount, true)}</span>
+                  <span className="font-medium text-red-700">-{disp(e.amount, true)}</span>
                 </div>
               </div>
             ))}

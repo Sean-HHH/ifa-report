@@ -42,15 +42,24 @@ function migrate(raw: any): ClientProfile {
 
   // v5 → v6: assetItems 加 currency/institution/purpose；加 targetAllocation/toleranceBand/assetSnapshot
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const migratedAssetItems = assetItems.map((item: any) => ({
-    currency: 'TWD',
-    institution: '',
-    purpose: 'growth',
-    ...item,
-  }))
+  const migratedAssetItems = assetItems.map((item: any) => {
+    const base = {
+      currency: 'TWD',
+      institution: '',
+      purpose: 'growth',
+      ...item,
+    }
+    // v6 → v7: amount was stored as TWD equivalent regardless of currency label.
+    // Reset currency to 'TWD' so existing amounts remain numerically correct.
+    if (!raw.__schemaVersion || raw.__schemaVersion < 7) {
+      base.currency = 'TWD'
+    }
+    return base
+  })
 
   return {
     ...raw,
+    __schemaVersion: 7,
     assetItems: migratedAssetItems,
     liabilityItems: Array.isArray(raw.liabilityItems)
       ? raw.liabilityItems

@@ -5,12 +5,15 @@ import {
   LineElement, BarElement, Title, Tooltip, Legend, Filler,
 } from 'chart.js'
 import type { ClientProfile } from '../../types/client'
-import { calcRetirement, fmtNTD, fmtPct } from '../../utils/calculations'
+import { calcRetirement, convertCurrency, fmtAmount, fmtPct } from '../../utils/calculations'
+import type { FxRates } from '../../services/exchangeRate'
 import { StatCard } from './StatCard'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler)
 
-export function RetirementReport({ client }: { client: ClientProfile }) {
+export function RetirementReport({ client, rates, reportCurrency }: { client: ClientProfile; rates: FxRates; reportCurrency: string }) {
+  const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, rates)
+  const disp = (n: number, compact = false) => fmtAmount(rc(n), reportCurrency, compact)
   const r = useMemo(() => calcRetirement(client), [client])
   const isOnTrack = r.gap <= 0
 
@@ -39,7 +42,7 @@ export function RetirementReport({ client }: { client: ClientProfile }) {
   }
 
   const axisOpts = {
-    y: { ticks: { callback: (v: number | string) => fmtNTD(Number(v), true) } },
+    y: { ticks: { callback: (v: number | string) => disp(Number(v), true) } },
   }
 
   const depleted = r.withdrawalYears.findIndex(d => d.base <= 0)
@@ -51,10 +54,10 @@ export function RetirementReport({ client }: { client: ClientProfile }) {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="距退休年數" value={`${r.yearsToRetirement} 年`} color="blue" />
-        <StatCard label="退休缺口" value={r.gap > 0 ? fmtNTD(r.gap, true) : '已達標 ✓'}
+        <StatCard label="退休缺口" value={r.gap > 0 ? disp(r.gap, true) : '已達標 ✓'}
           sub={isOnTrack ? undefined : '需補足金額'}
           color={isOnTrack ? 'green' : 'red'} />
-        <StatCard label="需額外月儲蓄" value={r.requiredMonthlySavings > 0 ? fmtNTD(r.requiredMonthlySavings, true) : '不需額外'}
+        <StatCard label="需額外月儲蓄" value={r.requiredMonthlySavings > 0 ? disp(r.requiredMonthlySavings, true) : '不需額外'}
           color={r.requiredMonthlySavings > 0 ? 'orange' : 'green'} />
         <StatCard label="建議提領率" value={fmtPct(r.suggestedWithdrawalRate * 100)}
           sub={r.suggestedWithdrawalRate > 0.05 ? '偏高，建議 < 5%' : '健康範圍'}
@@ -79,11 +82,11 @@ export function RetirementReport({ client }: { client: ClientProfile }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
         <div className="bg-slate-50 rounded-xl p-4">
           <div className="text-slate-500 mb-1">目標月退休現金流</div>
-          <div className="text-xl font-bold text-slate-800">{fmtNTD(client.targetMonthlyRetirementIncome, true)}</div>
+          <div className="text-xl font-bold text-slate-800">{disp(client.targetMonthlyRetirementIncome, true)}</div>
         </div>
         <div className="bg-slate-50 rounded-xl p-4">
           <div className="text-slate-500 mb-1">所需退休資金（25×）</div>
-          <div className="text-xl font-bold text-slate-800">{fmtNTD(r.targetAsset, true)}</div>
+          <div className="text-xl font-bold text-slate-800">{disp(r.targetAsset, true)}</div>
         </div>
         <div className={`rounded-xl p-4 ${depletedAge ? 'bg-red-50' : 'bg-emerald-50'}`}>
           <div className={`mb-1 ${depletedAge ? 'text-red-500' : 'text-emerald-500'}`}>資產耗盡時間</div>
@@ -97,7 +100,7 @@ export function RetirementReport({ client }: { client: ClientProfile }) {
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
           <div className="text-sm font-semibold text-amber-700 mb-1">建議行動</div>
           <ul className="text-sm text-amber-600 space-y-1 list-disc list-inside">
-            <li>每月額外儲蓄 {fmtNTD(r.requiredMonthlySavings, true)} 可填補缺口</li>
+            <li>每月額外儲蓄 {disp(r.requiredMonthlySavings, true)} 可填補缺口</li>
             <li>考慮提高投資組合的風險配置以爭取更高報酬</li>
             <li>延後退休年齡或降低月退休現金流目標亦可縮小缺口</li>
           </ul>

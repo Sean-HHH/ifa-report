@@ -71,8 +71,8 @@ export const ASSET_CURRENCY_LABELS: Record<AssetCurrency, string> = {
 export type AssetPurpose = 'emergency' | 'growth' | 'income' | 'protection'
 
 export const ASSET_PURPOSE_LABELS: Record<AssetPurpose, string> = {
-  emergency: '緊急備用金', growth: '長期成長',
-  income: '收益型', protection: '保障型',
+  emergency: '生活備用金', growth: '長期成長',
+  income: '收益型', protection: '積極型',
 }
 
 export interface AssetPeriodSnapshot {

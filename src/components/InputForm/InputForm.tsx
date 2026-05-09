@@ -2,17 +2,19 @@ import { useState } from 'react'
 import type {
   ClientProfile, IncomeItem, ExpenseItem,
   InvestmentItem, InvestmentCategory, LiabilityItem, LiabilityType, MajorExpense, RiskProfile,
-  IncomeType, ExpenseCategory, PayFrequency, AssetCurrency, AssetPurpose, AssetPeriodSnapshot,
+  IncomeType, ExpenseCategory, PayFrequency, AssetCurrency, AssetPurpose,
 } from '../../types/client'
 import {
   INVESTMENT_CATEGORY_LABELS, INCOME_TYPE_LABELS, EXPENSE_CATEGORY_LABELS, PAY_FREQUENCY_LABELS,
   ASSET_CURRENCY_LABELS, ASSET_PURPOSE_LABELS,
 } from '../../types/client'
-import { calcCashFlow, fmtPct } from '../../utils/calculations'
+import { calcCashFlow, convertCurrency, fmtAmount, fmtPct } from '../../utils/calculations'
+import type { FxRates } from '../../services/exchangeRate'
 
 interface Props {
   client: ClientProfile
   onChange: (c: ClientProfile) => void
+  rates?: FxRates
 }
 
 const riskLabels: Record<RiskProfile, string> = {
@@ -68,7 +70,7 @@ function NoteField({ value, onChange }: { value?: string; onChange: (v: string) 
 
 // ── 主元件 ─────────────────────────────────────────────────
 
-export function InputForm({ client: c, onChange }: Props) {
+export function InputForm({ client: c, onChange, rates }: Props) {
   const [tab, setTab] = useState<'finance' | 'invest' | 'goals'>('finance')
 
   const patch = (partial: Partial<ClientProfile>) => onChange({ ...c, ...partial })
@@ -296,8 +298,17 @@ export function InputForm({ client: c, onChange }: Props) {
                     </select>
                     <input className="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
                       value={item.label} onChange={e => updateAsset(i, { label: e.target.value })} placeholder="項目名稱" />
-                    <input type="number" className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
-                      value={item.amount} onChange={e => updateAsset(i, { amount: Number(e.target.value) })} />
+                    <div className="flex flex-col">
+                      <input type="number" className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
+                        value={item.amount}
+                        placeholder={`金額（${item.currency ?? 'TWD'}）`}
+                        onChange={e => updateAsset(i, { amount: Number(e.target.value) })} />
+                      {item.currency && item.currency !== 'TWD' && rates && item.amount > 0 && (
+                        <span className="text-xs text-slate-400 mt-0.5 text-right">
+                          ≈ {fmtAmount(convertCurrency(item.amount, item.currency, 'TWD', rates), 'TWD', true)} TWD
+                        </span>
+                      )}
+                    </div>
                     <button onClick={() => removeAsset(i)} className="text-slate-300 hover:text-red-400 text-sm px-1">✕</button>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-1.5">
@@ -327,42 +338,6 @@ export function InputForm({ client: c, onChange }: Props) {
                 </div>
               ))}
               <AddBtn onClick={addAsset} label="新增資產項目" />
-            </Section>
-
-            <Section title="期間比較（資產變化）">
-              {(() => {
-                const snap = c.assetSnapshot
-                const patchSnap = (partial: Partial<AssetPeriodSnapshot>) =>
-                  patch({ assetSnapshot: { periodLabel: '', snapshotDate: '', openingAssets: 0, netContribution: 0, dividendIncome: 0, fxImpact: 0, fees: 0, ...snap, ...partial } })
-                return (
-                  <div className="space-y-2">
-                    <div className="flex gap-2 flex-wrap">
-                      <input
-                        className="flex-1 min-w-[140px] bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
-                        value={snap?.periodLabel ?? ''}
-                        onChange={e => patchSnap({ periodLabel: e.target.value })}
-                        placeholder="期間名稱（如 2025 Q1）" />
-                      <input
-                        type="date"
-                        className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
-                        value={snap?.snapshotDate ?? ''}
-                        onChange={e => patchSnap({ snapshotDate: e.target.value })} />
-                    </div>
-                    <SnapField label="期初總資產" value={snap?.openingAssets ?? 0} onChange={v => patchSnap({ openingAssets: v })} />
-                    <SnapField label="本期淨投入" value={snap?.netContribution ?? 0} onChange={v => patchSnap({ netContribution: v })} hint="正=投入，負=提領" />
-                    <SnapField label="配息 / 利息" value={snap?.dividendIncome ?? 0} onChange={v => patchSnap({ dividendIncome: v })} />
-                    <SnapField label="費用 / 稅務" value={snap?.fees ?? 0} onChange={v => patchSnap({ fees: v })} hint="正數代表支出" />
-                    <SnapField label="匯率影響" value={snap?.fxImpact ?? 0} onChange={v => patchSnap({ fxImpact: v })} hint="正=利得，負=損失" />
-                    {snap && (
-                      <button
-                        onClick={() => patch({ assetSnapshot: null })}
-                        className="text-xs text-red-400 hover:text-red-600 mt-1">
-                        清除快照
-                      </button>
-                    )}
-                  </div>
-                )
-              })()}
             </Section>
 
             <Section title={`負債 · 總計 ${(totalLiab / 10000).toFixed(0)} 萬`}>
@@ -537,13 +512,3 @@ function AddBtn({ onClick, label }: { onClick: () => void; label: string }) {
   )
 }
 
-function SnapField({ label, value, onChange, hint }: { label: string; value: number; onChange: (v: number) => void; hint?: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <label className="text-sm text-slate-500 w-28 shrink-0">{label}</label>
-      <input type="number" className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm w-36 focus:border-blue-300 outline-none"
-        value={value} onChange={e => onChange(Number(e.target.value))} />
-      {hint && <span className="text-xs text-slate-400">{hint}</span>}
-    </div>
-  )
-}

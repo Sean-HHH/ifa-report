@@ -1,6 +1,7 @@
 import type { ClientProfile } from '../types/client'
 import { RISK_RETURN, INVESTMENT_CATEGORY_LABELS } from '../types/client'
 import type { IncomeType, ExpenseCategory, PayFrequency, InvestmentCategory } from '../types/client'
+import type { FxRates } from '../services/exchangeRate'
 
 // ── 頻率換算 ─────────────────────────────────────────────────
 
@@ -172,6 +173,30 @@ export function netWorth(c: ClientProfile): number {
   return totalAssets(c) - totalLiabilities(c)
 }
 
+// ── 多幣別換算 ────────────────────────────────────────────────
+
+export function convertCurrency(amount: number, fromCurrency: string, toCurrency: string, rates: FxRates): number {
+  if (fromCurrency === toCurrency) return amount
+  const toTWD = rates[fromCurrency] ?? 1
+  if (toCurrency === 'TWD') return amount * toTWD
+  const fromTWD = rates[toCurrency] ?? 1
+  return (amount * toTWD) / fromTWD
+}
+
+export function totalAssetsConverted(c: ClientProfile, rates: FxRates, reportCurrency: string): number {
+  return c.assetItems.reduce((s, item) =>
+    s + convertCurrency(item.amount, item.currency ?? 'TWD', reportCurrency, rates), 0)
+}
+
+export function totalLiabilitiesConverted(c: ClientProfile, rates: FxRates, reportCurrency: string): number {
+  return c.liabilityItems.reduce((s, item) =>
+    s + convertCurrency(item.amount, 'TWD', reportCurrency, rates), 0)
+}
+
+export function netWorthConverted(c: ClientProfile, rates: FxRates, reportCurrency: string): number {
+  return totalAssetsConverted(c, rates, reportCurrency) - totalLiabilitiesConverted(c, rates, reportCurrency)
+}
+
 // ── 資產成長路徑 ─────────────────────────────────────────────
 
 export interface GrowthYear {
@@ -276,8 +301,10 @@ export interface AssetAllocationResult {
   isConcentrated: boolean
 }
 
-export function calcAssetAllocation(c: ClientProfile): AssetAllocationResult {
-  const total = totalAssets(c)
+export function calcAssetAllocation(c: ClientProfile, rates?: FxRates, reportCurrency?: string): AssetAllocationResult {
+  const rc = reportCurrency ?? 'TWD'
+  const fx = rates ?? { TWD: 1 }
+  const total = rates ? totalAssetsConverted(c, fx, rc) : totalAssets(c)
   if (total === 0) {
     return { byCategory: {}, byCurrency: {}, byPurpose: {}, topHolding: null, isConcentrated: false }
   }
@@ -287,14 +314,16 @@ export function calcAssetAllocation(c: ClientProfile): AssetAllocationResult {
   const byPurpose: Record<string, { amount: number; pct: number }> = {}
 
   for (const item of c.assetItems) {
+    const converted = rates ? convertCurrency(item.amount, item.currency ?? 'TWD', rc, fx) : item.amount
+
     const cat = item.category
-    byCategory[cat] = { amount: (byCategory[cat]?.amount ?? 0) + item.amount, pct: 0 }
+    byCategory[cat] = { amount: (byCategory[cat]?.amount ?? 0) + converted, pct: 0 }
 
     const cur = item.currency ?? 'TWD'
-    byCurrency[cur] = { amount: (byCurrency[cur]?.amount ?? 0) + item.amount, pct: 0 }
+    byCurrency[cur] = { amount: (byCurrency[cur]?.amount ?? 0) + converted, pct: 0 }
 
     const pur = item.purpose ?? 'growth'
-    byPurpose[pur] = { amount: (byPurpose[pur]?.amount ?? 0) + item.amount, pct: 0 }
+    byPurpose[pur] = { amount: (byPurpose[pur]?.amount ?? 0) + converted, pct: 0 }
   }
 
   for (const k of Object.keys(byCategory) as InvestmentCategory[]) {
@@ -310,8 +339,9 @@ export function calcAssetAllocation(c: ClientProfile): AssetAllocationResult {
   const topItem = c.assetItems.reduce<typeof c.assetItems[0] | null>(
     (best, item) => (!best || item.amount > best.amount ? item : best), null
   )
+  const topConverted = topItem ? (rates ? convertCurrency(topItem.amount, topItem.currency ?? 'TWD', rc, fx) : topItem.amount) : 0
   const topHolding = topItem
-    ? { label: topItem.label, amount: topItem.amount, pct: (topItem.amount / total) * 100 }
+    ? { label: topItem.label, amount: topConverted, pct: (topConverted / total) * 100 }
     : null
 
   return { byCategory, byCurrency, byPurpose, topHolding, isConcentrated: (topHolding?.pct ?? 0) > 30 }
@@ -401,4 +431,23 @@ export function fmtNTD(n: number, compact = false): string {
 
 export function fmtPct(n: number): string {
   return `${n.toFixed(1)}%`
+}
+
+export function fmtAmount(n: number, currency: string, compact = false): string {
+  if (currency === 'TWD') return fmtNTD(n, compact)
+  if (currency === 'USDT') {
+    if (compact && Math.abs(n) >= 1000) return `USDT ${(n / 1000).toFixed(1)}K`
+    return `USDT ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)}`
+  }
+  if (currency === 'other') return new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 0 }).format(n)
+  // USD / JPY / EUR / GBP / HKD
+  const isoMap: Record<string, string> = { USD: 'USD', JPY: 'JPY', EUR: 'EUR', GBP: 'GBP', HKD: 'HKD' }
+  const iso = isoMap[currency]
+  if (!iso) return `${currency} ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n)}`
+  if (compact) {
+    const abs = Math.abs(n)
+    if (abs >= 1_000_000) return `${iso} ${(n / 1_000_000).toFixed(1)}M`
+    if (abs >= 1_000) return `${iso} ${(n / 1_000).toFixed(0)}K`
+  }
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: iso, maximumFractionDigits: 0 }).format(n)
 }

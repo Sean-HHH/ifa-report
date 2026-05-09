@@ -8,7 +8,8 @@ import {
 import type { ClientProfile } from '../../types/client'
 import { INCOME_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '../../types/client'
 import type { IncomeType, ExpenseCategory } from '../../types/client'
-import { calcCashFlow, calcCashFlowProjection, calcMonthlyTimeline, fmtNTD, fmtPct } from '../../utils/calculations'
+import { calcCashFlow, calcCashFlowProjection, calcMonthlyTimeline, convertCurrency, fmtAmount, fmtPct } from '../../utils/calculations'
+import type { FxRates } from '../../services/exchangeRate'
 import { StatCard } from './StatCard'
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement)
@@ -46,10 +47,16 @@ function NoteTag({ note }: { note?: string }) {
   )
 }
 
-export function CashFlowReport({ client }: { client: ClientProfile }) {
+interface FxProps { rates: FxRates; reportCurrency: string }
+
+export function CashFlowReport({ client, rates, reportCurrency }: { client: ClientProfile } & FxProps) {
   const cf = useMemo(() => calcCashFlow(client), [client])
   const projection = useMemo(() => calcCashFlowProjection(client), [client])
   const timeline = useMemo(() => calcMonthlyTimeline(client), [client])
+
+  // All income/expense are TWD; convert for display
+  const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, rates)
+  const disp = (n: number, compact = false) => fmtAmount(rc(n), reportCurrency, compact)
 
   const { expenseByCategory: ec, incomeByType: it } = cf
 
@@ -91,7 +98,7 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
     responsive: true,
     plugins: { legend: { display: false } },
     scales: {
-      y: { ticks: { callback: (v: number | string) => fmtNTD(Number(v), true) } },
+      y: { ticks: { callback: (v: number | string) => disp(Number(v), true) } },
     },
   }
 
@@ -103,17 +110,17 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
       <div className="grid grid-cols-3 gap-3">
         <StatCard
           label="帳面現金流"
-          value={fmtNTD(cf.netCashFlow, true)}
+          value={disp(cf.netCashFlow, true)}
           color={cf.netCashFlow >= 0 ? 'blue' : 'red'}
         />
         <StatCard
           label="真實現金流"
-          value={fmtNTD(cf.trueNetCashFlow, true)}
+          value={disp(cf.trueNetCashFlow, true)}
           color={cf.trueNetCashFlow >= 0 ? 'green' : 'red'}
         />
         <StatCard
           label="可投資現金流"
-          value={fmtNTD(cf.investibleCashFlow, true)}
+          value={disp(cf.investibleCashFlow, true)}
           color={cf.investibleCashFlow >= 0 ? 'purple' : 'red'}
         />
       </div>
@@ -208,7 +215,7 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
             options={{
               responsive: true,
               plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
-              scales: { y: { ticks: { callback: (v: number | string) => fmtNTD(Number(v), true) } } },
+              scales: { y: { ticks: { callback: (v: number | string) => disp(Number(v), true) } } },
             } as never}
           />
         </div>
@@ -228,10 +235,10 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
               {projection.map((p, i) => (
                 <tr key={p.year} className={i % 2 === 0 ? 'bg-slate-50/50' : ''}>
                   <td className="py-1.5 pr-3 font-medium">{p.year}{i === 0 ? ' (現在)' : ''}</td>
-                  <td className="text-right py-1.5 pr-3">{fmtNTD(p.totalIncome, true)}</td>
-                  <td className="text-right py-1.5 pr-3 text-blue-600">{fmtNTD(p.net, true)}</td>
-                  <td className="text-right py-1.5 pr-3 text-emerald-600">{fmtNTD(p.true_, true)}</td>
-                  <td className="text-right py-1.5 text-violet-600">{fmtNTD(p.investible, true)}</td>
+                  <td className="text-right py-1.5 pr-3">{disp(p.totalIncome, true)}</td>
+                  <td className="text-right py-1.5 pr-3 text-blue-600">{disp(p.net, true)}</td>
+                  <td className="text-right py-1.5 pr-3 text-emerald-600">{disp(p.true_, true)}</td>
+                  <td className="text-right py-1.5 text-violet-600">{disp(p.investible, true)}</td>
                 </tr>
               ))}
             </tbody>
@@ -258,7 +265,7 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
                 <NoteTag note={item.note} />
               </div>
               <span className="font-medium text-blue-700">
-                {fmtNTD(item.amount, true)}
+                {disp(item.amount, true)}
                 {item.frequency && item.frequency !== 'monthly' && (
                   <span className="text-xs text-violet-500 font-normal ml-1">
                     /{item.frequency === 'quarterly' ? '季' : '年'}
@@ -284,7 +291,7 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
                 <NoteTag note={e.note} />
               </div>
               <span className="font-medium text-slate-700">
-                {fmtNTD(e.amount, true)}
+                {disp(e.amount, true)}
                 {e.frequency && e.frequency !== 'monthly' && (
                   <span className="text-xs text-orange-400 font-normal ml-1">
                     /{e.frequency === 'quarterly' ? '季' : '年'}
@@ -320,14 +327,14 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
             <div className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-3 py-2 text-sm">
               <span className="text-slate-400 text-xs">最大缺口</span>
               <span className="text-red-600 font-medium text-xs">
-                {timeline.worstMonth.month}月（−{fmtNTD(timeline.worstMonth.deficit, true)}）
+                {timeline.worstMonth.month}月（−{disp(timeline.worstMonth.deficit, true)}）
               </span>
             </div>
           )}
           {timeline.incomeSpread > 0 && (
             <div className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-3 py-2 text-sm">
               <span className="text-slate-400 text-xs">收入波動幅度</span>
-              <span className="text-amber-600 font-medium text-xs">{fmtNTD(timeline.incomeSpread, true)}</span>
+              <span className="text-amber-600 font-medium text-xs">{disp(timeline.incomeSpread, true)}</span>
             </div>
           )}
         </div>
@@ -379,7 +386,7 @@ export function CashFlowReport({ client }: { client: ClientProfile }) {
                 legend: { position: 'top', labels: { font: { size: 11 } } },
               },
               scales: {
-                y: { ticks: { callback: (v: number | string) => fmtNTD(Number(v), true) } },
+                y: { ticks: { callback: (v: number | string) => disp(Number(v), true) } },
               },
             } as never}
           />

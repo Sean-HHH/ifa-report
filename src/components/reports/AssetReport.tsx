@@ -6,9 +6,11 @@ import {
   INVESTMENT_CATEGORY_LABELS, ASSET_CURRENCY_LABELS, ASSET_PURPOSE_LABELS,
 } from '../../types/client'
 import {
-  totalAssets, totalLiabilities, netWorth, fmtNTD, fmtPct,
+  totalLiabilities, netWorthConverted, totalAssetsConverted, totalLiabilitiesConverted,
+  convertCurrency, fmtAmount, fmtPct,
   calcAssetAllocation, calcAssetPeriodChange, calcAssetDeviation,
 } from '../../utils/calculations'
+import type { FxRates } from '../../services/exchangeRate'
 import { StatCard } from './StatCard'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
@@ -21,6 +23,8 @@ const PIE_OPTS = {
   responsive: true,
   plugins: { legend: { position: 'bottom' as const, labels: { font: { size: 10 }, padding: 6 } } },
 }
+
+interface FxProps { rates: FxRates; reportCurrency: string }
 
 function NoteTag({ note }: { note?: string }) {
   const [show, setShow] = useState(false)
@@ -54,11 +58,15 @@ function EmptyHint({ text }: { text: string }) {
 
 // ── Layer 1: 資產現況 ─────────────────────────────────────────
 
-function Layer1({ client }: { client: ClientProfile }) {
-  const nw = useMemo(() => netWorth(client), [client])
-  const totalInv = useMemo(() => totalAssets(client), [client])
-  const totalLiab = useMemo(() => totalLiabilities(client), [client])
-  const alloc = useMemo(() => calcAssetAllocation(client), [client])
+function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & FxProps) {
+  const nw = useMemo(() => netWorthConverted(client, rates, reportCurrency), [client, rates, reportCurrency])
+  const totalInv = useMemo(() => totalAssetsConverted(client, rates, reportCurrency), [client, rates, reportCurrency])
+  const totalLiab = useMemo(() => totalLiabilitiesConverted(client, rates, reportCurrency), [client, rates, reportCurrency])
+  const alloc = useMemo(() => calcAssetAllocation(client, rates, reportCurrency), [client, rates, reportCurrency])
+
+  const disp = (n: number, compact = false) => fmtAmount(n, reportCurrency, compact)
+  const dispItem = (amount: number, currency: string) =>
+    fmtAmount(convertCurrency(amount, currency, reportCurrency, rates), reportCurrency, true)
 
   const catPie = {
     labels: (Object.keys(alloc.byCategory) as InvestmentCategory[]).map(k => INVESTMENT_CATEGORY_LABELS[k]),
@@ -77,14 +85,15 @@ function Layer1({ client }: { client: ClientProfile }) {
 
   const longTermLiab = client.liabilityItems.filter(l => l.type === 'long_term')
   const currentLiab = client.liabilityItems.filter(l => l.type === 'current')
+  const rawTotalLiab = totalLiabilities(client)
 
   return (
     <div className="space-y-5">
       {/* KPI */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="淨資產" value={fmtNTD(nw, true)} color={nw >= 0 ? 'blue' : 'red'} />
-        <StatCard label="總資產" value={fmtNTD(totalInv, true)} color="green" />
-        <StatCard label="總負債" value={fmtNTD(totalLiab, true)} color={totalLiab > 0 ? 'red' : 'green'} />
+        <StatCard label="淨資產" value={disp(nw, true)} color={nw >= 0 ? 'blue' : 'red'} />
+        <StatCard label="總資產" value={disp(totalInv, true)} color="green" />
+        <StatCard label="總負債" value={disp(totalLiab, true)} color={totalLiab > 0 ? 'red' : 'green'} />
         <div className={`rounded-xl p-3 border ${alloc.isConcentrated ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
           <div className="text-xs text-slate-400 mb-1">最大單一持倉</div>
           {alloc.topHolding ? (
@@ -104,7 +113,7 @@ function Layer1({ client }: { client: ClientProfile }) {
       {/* 三張圓餅圖 */}
       {client.assetItems.length > 0 ? (
         <div>
-          <SectionTitle>資產分布 · 總計 {fmtNTD(totalInv, true)}</SectionTitle>
+          <SectionTitle>資產分布 · 總計 {disp(totalInv, true)}</SectionTitle>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-slate-50 rounded-xl p-3">
               <div className="text-xs text-center text-slate-400 mb-2 font-medium">資產類別</div>
@@ -148,7 +157,16 @@ function Layer1({ client }: { client: ClientProfile }) {
                   <span className="text-slate-700 truncate">{item.label}</span>
                   <NoteTag note={item.note} />
                 </div>
-                <span className="font-medium text-emerald-700 shrink-0 ml-2">{fmtNTD(item.amount, true)}</span>
+                <div className="flex flex-col items-end ml-2 shrink-0">
+                  <span className="font-medium text-emerald-700">
+                    {dispItem(item.amount, item.currency ?? 'TWD')}
+                  </span>
+                  {item.currency && item.currency !== 'TWD' && item.currency !== reportCurrency && (
+                    <span className="text-xs text-slate-400">
+                      {fmtAmount(item.amount, item.currency, true)} 原幣
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -158,7 +176,7 @@ function Layer1({ client }: { client: ClientProfile }) {
       {/* 負債明細 */}
       {client.liabilityItems.length > 0 && (
         <div>
-          <SectionTitle>負債明細 · 總計 {fmtNTD(totalLiab, true)}</SectionTitle>
+          <SectionTitle>負債明細 · 總計 {disp(totalLiab, true)}</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {longTermLiab.length > 0 && (
               <div>
@@ -169,7 +187,7 @@ function Layer1({ client }: { client: ClientProfile }) {
                       <span className="text-red-700">{item.label}</span>
                       <NoteTag note={item.note} />
                     </div>
-                    <span className="font-medium text-red-700">{fmtNTD(item.amount, true)}</span>
+                    <span className="font-medium text-red-700">{disp(convertCurrency(item.amount, 'TWD', reportCurrency, rates), true)}</span>
                   </div>
                 ))}
               </div>
@@ -183,12 +201,13 @@ function Layer1({ client }: { client: ClientProfile }) {
                       <span className="text-orange-700">{item.label}</span>
                       <NoteTag note={item.note} />
                     </div>
-                    <span className="font-medium text-orange-700">{fmtNTD(item.amount, true)}</span>
+                    <span className="font-medium text-orange-700">{disp(convertCurrency(item.amount, 'TWD', reportCurrency, rates), true)}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
+          {rawTotalLiab > 0 && <div className="sr-only">{rawTotalLiab}</div>}
         </div>
       )}
     </div>
@@ -198,15 +217,15 @@ function Layer1({ client }: { client: ClientProfile }) {
 // ── Layer 2: 資產變化 ─────────────────────────────────────────
 
 function WaterfallRow({
-  label, amount, isTotal = false, isSubtract = false,
-}: { label: string; amount: number; isTotal?: boolean; isSubtract?: boolean }) {
+  label, amount, isTotal = false, isSubtract = false, disp,
+}: { label: string; amount: number; isTotal?: boolean; isSubtract?: boolean; disp: (n: number, compact?: boolean) => string }) {
   const effectiveAmount = isSubtract ? -amount : amount
   const isPositive = effectiveAmount >= 0
   const colorClass = isTotal
     ? 'font-bold text-slate-800'
     : isPositive ? 'text-emerald-600' : 'text-red-500'
   const prefix = isTotal ? '' : isPositive ? '+ ' : '– '
-  const displayAmount = isTotal ? fmtNTD(amount, true) : fmtNTD(Math.abs(effectiveAmount), true)
+  const displayAmount = isTotal ? disp(amount, true) : disp(Math.abs(effectiveAmount), true)
 
   return (
     <div className={`flex justify-between py-1.5 px-3 rounded text-sm ${isTotal ? 'bg-slate-100 mt-1' : ''}`}>
@@ -216,12 +235,14 @@ function WaterfallRow({
   )
 }
 
-function Layer2({ client }: { client: ClientProfile }) {
+function Layer2({ client, rates, reportCurrency }: { client: ClientProfile } & FxProps) {
   const change = useMemo(() => calcAssetPeriodChange(client), [client])
+  const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, rates)
+  const disp = (n: number, compact = false) => fmtAmount(rc(n), reportCurrency, compact)
 
   if (!change) {
     return (
-      <EmptyHint text="尚未設定期初快照 · 請在「財務狀況」→「期間比較」填入資料，即可顯示本期資產變化拆解" />
+      <EmptyHint text="尚未設定期初快照（功能已暫時停用）" />
     )
   }
 
@@ -230,19 +251,19 @@ function Layer2({ client }: { client: ClientProfile }) {
   return (
     <div className="space-y-2">
       <div className="text-xs text-slate-400 mb-3">期間：{change.periodLabel}</div>
-      <WaterfallRow label="期初總資產" amount={change.openingAssets} isTotal />
+      <WaterfallRow label="期初總資產" amount={change.openingAssets} isTotal disp={disp} />
       <div className="pl-2 space-y-0.5 border-l-2 border-slate-200 ml-3 py-1">
-        <WaterfallRow label="淨投入" amount={change.netContribution} />
-        <WaterfallRow label="投資損益" amount={change.investmentGain} />
-        <WaterfallRow label="配息 / 利息" amount={change.dividendIncome} />
-        <WaterfallRow label="匯率影響" amount={change.fxImpact} />
-        <WaterfallRow label="費用 / 稅務" amount={change.fees} isSubtract />
+        <WaterfallRow label="淨投入" amount={change.netContribution} disp={disp} />
+        <WaterfallRow label="投資損益" amount={change.investmentGain} disp={disp} />
+        <WaterfallRow label="配息 / 利息" amount={change.dividendIncome} disp={disp} />
+        <WaterfallRow label="匯率影響" amount={change.fxImpact} disp={disp} />
+        <WaterfallRow label="費用 / 稅務" amount={change.fees} isSubtract disp={disp} />
       </div>
-      <WaterfallRow label="期末總資產" amount={change.closingAssets} isTotal />
+      <WaterfallRow label="期末總資產" amount={change.closingAssets} isTotal disp={disp} />
       <div className="flex justify-between px-3 pt-1 text-xs text-slate-400">
         <span>本期總變動</span>
         <span className={change.totalChange >= 0 ? 'text-emerald-600 font-semibold' : 'text-red-500 font-semibold'}>
-          {change.totalChange >= 0 ? '+' : ''}{fmtNTD(change.totalChange, true)} （{changePctText}）
+          {change.totalChange >= 0 ? '+' : ''}{disp(change.totalChange, true)} （{changePctText}）
         </span>
       </div>
     </div>
@@ -251,8 +272,10 @@ function Layer2({ client }: { client: ClientProfile }) {
 
 // ── Layer 3: 配置偏離 ─────────────────────────────────────────
 
-function Layer3({ client }: { client: ClientProfile }) {
+function Layer3({ client, rates, reportCurrency }: { client: ClientProfile } & FxProps) {
   const deviation = useMemo(() => calcAssetDeviation(client), [client])
+  const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, rates)
+  const disp = (n: number, compact = false) => fmtAmount(rc(n), reportCurrency, compact)
 
   if (!deviation.hasTargets) {
     return (
@@ -292,7 +315,7 @@ function Layer3({ client }: { client: ClientProfile }) {
                   {item.deviation >= 0 ? '+' : ''}{fmtPct(item.deviation)}
                 </td>
                 <td className={`text-right pr-2 ${item.deviationAmount > 0 ? 'text-orange-500' : item.deviationAmount < 0 ? 'text-blue-500' : 'text-slate-400'}`}>
-                  {item.deviationAmount >= 0 ? '+' : ''}{fmtNTD(item.deviationAmount, true)}
+                  {item.deviationAmount >= 0 ? '+' : ''}{disp(item.deviationAmount, true)}
                 </td>
                 <td className="text-right pr-2">
                   {item.action === 'ok' && <span className="text-xs text-emerald-500">✓ 容許內</span>}
@@ -314,7 +337,7 @@ function Layer3({ client }: { client: ClientProfile }) {
               <span>{item.label}</span>
               <span>
                 {item.action === 'overweight' ? '減持' : '增持'}{' '}
-                {fmtNTD(Math.abs(item.deviationAmount), true)}（偏離 {Math.abs(item.deviation).toFixed(1)}%）
+                {disp(Math.abs(item.deviationAmount), true)}（偏離 {Math.abs(item.deviation).toFixed(1)}%）
               </span>
             </div>
           ))}
@@ -326,7 +349,7 @@ function Layer3({ client }: { client: ClientProfile }) {
 
 // ── 主元件 ───────────────────────────────────────────────────
 
-export function AssetReport({ client }: { client: ClientProfile }) {
+export function AssetReport({ client, rates, reportCurrency }: { client: ClientProfile } & FxProps) {
   const [activeLayer, setActiveLayer] = useState<1 | 2 | 3>(1)
 
   const layers: { id: 1 | 2 | 3; label: string }[] = [
@@ -353,9 +376,9 @@ export function AssetReport({ client }: { client: ClientProfile }) {
         ))}
       </div>
 
-      {activeLayer === 1 && <Layer1 client={client} />}
-      {activeLayer === 2 && <Layer2 client={client} />}
-      {activeLayer === 3 && <Layer3 client={client} />}
+      {activeLayer === 1 && <Layer1 client={client} rates={rates} reportCurrency={reportCurrency} />}
+      {activeLayer === 2 && <Layer2 client={client} rates={rates} reportCurrency={reportCurrency} />}
+      {activeLayer === 3 && <Layer3 client={client} rates={rates} reportCurrency={reportCurrency} />}
     </div>
   )
 }
