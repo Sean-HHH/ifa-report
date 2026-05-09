@@ -8,7 +8,7 @@ import {
 import {
   totalLiabilities, netWorthConverted, totalAssetsConverted, totalLiabilitiesConverted,
   convertCurrency, fmtAmount, fmtPct,
-  calcAssetAllocation, calcAssetPeriodChange, calcAssetDeviation,
+  calcAssetAllocation, calcAssetDeviation, calcCategoryBreakdown,
 } from '../../utils/calculations'
 import type { FxRates } from '../../services/exchangeRate'
 import { StatCard } from './StatCard'
@@ -216,56 +216,134 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
 
 // ── Layer 2: 資產變化 ─────────────────────────────────────────
 
-function WaterfallRow({
-  label, amount, isTotal = false, isSubtract = false, disp,
-}: { label: string; amount: number; isTotal?: boolean; isSubtract?: boolean; disp: (n: number, compact?: boolean) => string }) {
-  const effectiveAmount = isSubtract ? -amount : amount
-  const isPositive = effectiveAmount >= 0
-  const colorClass = isTotal
-    ? 'font-bold text-slate-800'
-    : isPositive ? 'text-emerald-600' : 'text-red-500'
-  const prefix = isTotal ? '' : isPositive ? '+ ' : '– '
-  const displayAmount = isTotal ? disp(amount, true) : disp(Math.abs(effectiveAmount), true)
+function Layer2({ client }: { client: ClientProfile }) {
+  const snapshots = useMemo(() => client.assetSnapshots ?? [], [client.assetSnapshots])
+  const [fromId, setFromId] = useState<string>(() => (client.assetSnapshots ?? [])[((client.assetSnapshots ?? []).length - 1)]?.id ?? '')
+  const [toId, setToId] = useState<string>(() => (client.assetSnapshots ?? [])[0]?.id ?? '')
 
-  return (
-    <div className={`flex justify-between py-1.5 px-3 rounded text-sm ${isTotal ? 'bg-slate-100 mt-1' : ''}`}>
-      <span className={isTotal ? 'font-semibold text-slate-700' : 'text-slate-500'}>{label}</span>
-      <span className={colorClass}>{prefix}{displayAmount}</span>
-    </div>
-  )
-}
+  const fromSnap = snapshots.find(s => s.id === fromId) ?? snapshots[snapshots.length - 1]
+  const toSnap   = snapshots.find(s => s.id === toId)   ?? snapshots[0]
 
-function Layer2({ client, rates, reportCurrency }: { client: ClientProfile } & FxProps) {
-  const change = useMemo(() => calcAssetPeriodChange(client), [client])
-  const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, rates)
-  const disp = (n: number, compact = false) => fmtAmount(rc(n), reportCurrency, compact)
+  // Resolve A / B items and totals
+  const aItems = useMemo(() => {
+    if (snapshots.length === 0) return null
+    if (snapshots.length === 1) return snapshots[0].assetItems ?? null
+    return fromSnap?.assetItems ?? null
+  }, [snapshots, fromSnap])
 
-  if (!change) {
-    return (
-      <EmptyHint text="尚未設定期初快照（功能已暫時停用）" />
-    )
+  const bItems = useMemo(() => {
+    if (snapshots.length === 0) return null
+    if (snapshots.length === 1) return client.assetItems
+    return toSnap?.assetItems ?? null
+  }, [snapshots, toSnap, client.assetItems])
+
+  const aTotal = useMemo(() => {
+    if (snapshots.length === 0) return 0
+    if (snapshots.length === 1) return snapshots[0].openingAssets
+    return fromSnap?.openingAssets ?? 0
+  }, [snapshots, fromSnap])
+
+  const bTotal = useMemo(() => {
+    if (snapshots.length === 0) return 0
+    if (snapshots.length === 1) return client.assetItems.reduce((s, i) => s + i.amount, 0)
+    return toSnap?.openingAssets ?? 0
+  }, [snapshots, toSnap, client.assetItems])
+
+  const aBreakdown = useMemo(() => aItems ? calcCategoryBreakdown(aItems) : null, [aItems])
+  const bBreakdown = useMemo(() => bItems ? calcCategoryBreakdown(bItems) : null, [bItems])
+
+  const aLabel = snapshots.length === 0 ? '' : snapshots.length === 1 ? snapshots[0].periodLabel : (fromSnap?.periodLabel ?? '')
+  const bLabel = snapshots.length === 1 ? '目前' : (toSnap?.periodLabel ?? '')
+
+  if (snapshots.length === 0) {
+    return <EmptyHint text="尚未建立快照 · 點選右上角「快照」按鈕開始記錄" />
   }
 
-  const changePctText = `${change.totalChangePct >= 0 ? '+' : ''}${fmtPct(change.totalChangePct)}`
+  const totalDelta   = bTotal - aTotal
+  const totalDeltaPct = aTotal > 0 ? (totalDelta / aTotal) * 100 : 0
+  const deltaColor   = totalDelta >= 0 ? 'text-emerald-600' : 'text-red-500'
+
+  function fmtWan(n: number) {
+    if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)} 億`
+    if (Math.abs(n) >= 1e4) return `${(n / 1e4).toFixed(0)} 萬`
+    return n.toLocaleString('zh-TW')
+  }
+
+  // Category rows: union of A+B categories, sorted by |delta pct| desc
+  const allCats = Array.from(new Set([
+    ...Object.keys(aBreakdown ?? {}),
+    ...Object.keys(bBreakdown ?? {}),
+  ])) as InvestmentCategory[]
+
+  const catRows = allCats.map(cat => {
+    const aPct = aBreakdown?.[cat]?.pct ?? 0
+    const bPct = bBreakdown?.[cat]?.pct ?? 0
+    return { cat, aPct, bPct, delta: bPct - aPct }
+  }).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
 
   return (
-    <div className="space-y-2">
-      <div className="text-xs text-slate-400 mb-3">期間：{change.periodLabel}</div>
-      <WaterfallRow label="期初總資產" amount={change.openingAssets} isTotal disp={disp} />
-      <div className="pl-2 space-y-0.5 border-l-2 border-slate-200 ml-3 py-1">
-        <WaterfallRow label="淨投入" amount={change.netContribution} disp={disp} />
-        <WaterfallRow label="投資損益" amount={change.investmentGain} disp={disp} />
-        <WaterfallRow label="配息 / 利息" amount={change.dividendIncome} disp={disp} />
-        <WaterfallRow label="匯率影響" amount={change.fxImpact} disp={disp} />
-        <WaterfallRow label="費用 / 稅務" amount={change.fees} isSubtract disp={disp} />
+    <div className="space-y-4">
+      {/* Snapshot selector (≥ 2 snapshots) */}
+      {snapshots.length >= 2 && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          <span>比較起點</span>
+          <select value={fromId} onChange={e => setFromId(e.target.value)}
+            className="border border-slate-200 rounded px-2 py-1 text-xs focus:border-blue-300 outline-none bg-white">
+            {snapshots.map(s => <option key={s.id} value={s.id}>{s.periodLabel} ({s.snapshotDate})</option>)}
+          </select>
+          <span>→ 比較終點</span>
+          <select value={toId} onChange={e => setToId(e.target.value)}
+            className="border border-slate-200 rounded px-2 py-1 text-xs focus:border-blue-300 outline-none bg-white">
+            {snapshots.map(s => <option key={s.id} value={s.id}>{s.periodLabel} ({s.snapshotDate})</option>)}
+          </select>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="text-xs font-semibold text-slate-500 tracking-wide">
+        {aLabel} → {bLabel}
       </div>
-      <WaterfallRow label="期末總資產" amount={change.closingAssets} isTotal disp={disp} />
-      <div className="flex justify-between px-3 pt-1 text-xs text-slate-400">
-        <span>本期總變動</span>
-        <span className={change.totalChange >= 0 ? 'text-emerald-600 font-semibold' : 'text-red-500 font-semibold'}>
-          {change.totalChange >= 0 ? '+' : ''}{disp(change.totalChange, true)} （{changePctText}）
-        </span>
+
+      {/* Total assets */}
+      <div className="bg-slate-50 rounded-xl px-4 py-3">
+        <div className="text-xs text-slate-400 mb-1">總資產</div>
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className="text-sm text-slate-500">{fmtWan(aTotal)}</span>
+          <span className="text-slate-300 text-xs">→</span>
+          <span className="text-base font-semibold text-slate-800">{fmtWan(bTotal)}</span>
+          <span className={`text-sm font-semibold ${deltaColor}`}>
+            {totalDelta >= 0 ? '+' : ''}{fmtWan(totalDelta)}（{totalDeltaPct >= 0 ? '+' : ''}{fmtPct(totalDeltaPct)}）
+          </span>
+        </div>
       </div>
+
+      {/* Category breakdown */}
+      {(aBreakdown || bBreakdown) ? (
+        <div>
+          <div className="text-xs text-slate-400 mb-2">類別配置</div>
+          <div className="space-y-1.5">
+            {catRows.map(({ cat, aPct, bPct, delta }) => {
+              const isUp   = delta > 0.05
+              const isDown = delta < -0.05
+              const deltaText = Math.abs(delta) < 0.05
+                ? '持平'
+                : `${delta > 0 ? '▲' : '▼'}${fmtPct(Math.abs(delta))}`
+              const deltaColor = isUp ? 'text-emerald-600' : isDown ? 'text-red-500' : 'text-slate-400'
+              return (
+                <div key={cat} className="flex items-center gap-2 text-sm">
+                  <span className="w-20 text-slate-500 text-xs shrink-0">{INVESTMENT_CATEGORY_LABELS[cat]}</span>
+                  <span className="text-slate-400 text-xs w-10 text-right">{fmtPct(aPct)}</span>
+                  <span className="text-slate-300 text-xs">→</span>
+                  <span className="text-slate-700 text-xs w-10 text-right">{fmtPct(bPct)}</span>
+                  <span className={`text-xs font-medium ml-1 ${deltaColor}`}>{deltaText}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="text-xs text-slate-400">無歷史配置資料（舊快照不含明細）</div>
+      )}
     </div>
   )
 }
@@ -377,7 +455,7 @@ export function AssetReport({ client, rates, reportCurrency }: { client: ClientP
       </div>
 
       {activeLayer === 1 && <Layer1 client={client} rates={rates} reportCurrency={reportCurrency} />}
-      {activeLayer === 2 && <Layer2 client={client} rates={rates} reportCurrency={reportCurrency} />}
+      {activeLayer === 2 && <Layer2 client={client} />}
       {activeLayer === 3 && <Layer3 client={client} rates={rates} reportCurrency={reportCurrency} />}
     </div>
   )

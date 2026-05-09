@@ -57,9 +57,20 @@ function migrate(raw: any): ClientProfile {
     return base
   })
 
+  // v7 → v8: assetSnapshot (single | null) → assetSnapshots (array)
+  let assetSnapshots: unknown[] = []
+  if (Array.isArray(raw.assetSnapshots)) {
+    assetSnapshots = raw.assetSnapshots.map((s: Record<string, unknown>) => ({
+      ...s,
+      id: s.id ?? String(Date.now()),
+    }))
+  } else if (raw.assetSnapshot) {
+    assetSnapshots = [{ id: String(Date.now()), ...raw.assetSnapshot }]
+  }
+
   return {
     ...raw,
-    __schemaVersion: 7,
+    __schemaVersion: 9,
     assetItems: migratedAssetItems,
     liabilityItems: Array.isArray(raw.liabilityItems)
       ? raw.liabilityItems
@@ -69,7 +80,9 @@ function migrate(raw: any): ClientProfile {
     globalInflationRate: raw.globalInflationRate ?? 0.02,
     targetAllocation: raw.targetAllocation ?? {},
     toleranceBand: raw.toleranceBand ?? 5,
-    assetSnapshot: raw.assetSnapshot ?? null,
+    assetSnapshots,
+    // v8 → v9: useInvestibleCashFlow toggle
+    useInvestibleCashFlow: raw.useInvestibleCashFlow ?? false,
   }
 }
 

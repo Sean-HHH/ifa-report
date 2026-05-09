@@ -76,6 +76,7 @@ export const ASSET_PURPOSE_LABELS: Record<AssetPurpose, string> = {
 }
 
 export interface AssetPeriodSnapshot {
+  id: string
   periodLabel: string
   snapshotDate: string
   openingAssets: number
@@ -83,6 +84,7 @@ export interface AssetPeriodSnapshot {
   dividendIncome: number
   fxImpact: number
   fees: number
+  assetItems?: InvestmentItem[]  // 快照當時的資產明細，供類別配置比較用
 }
 
 export interface InvestmentItem {
@@ -93,6 +95,9 @@ export interface InvestmentItem {
   institution?: string
   purpose?: AssetPurpose
   note?: string
+  ticker?: string
+  unitPrice?: number
+  units?: number
 }
 
 export type LiabilityType = 'long_term' | 'current'
@@ -127,10 +132,11 @@ export interface ClientProfile {
   riskProfile: RiskProfile
   customReturnRate: number | null
   monthlyContribution: number
+  useInvestibleCashFlow: boolean  // true = 定期投入連動可投資現金流
   globalInflationRate: number  // 全局通膨率，影響支出 projection，預設 0.02
   targetAllocation: Partial<Record<InvestmentCategory, number>>  // 各類別目標 %（0-100）
   toleranceBand: number   // 容許偏離 %，預設 5
-  assetSnapshot: AssetPeriodSnapshot | null  // Layer 2 期初快照
+  assetSnapshots: AssetPeriodSnapshot[]  // Layer 2 快照列表（最新在前）
 
   // 人生目標
   currentAge: number
@@ -169,10 +175,11 @@ export function newClient(): ClientProfile {
     riskProfile: 'moderate',
     customReturnRate: null,
     monthlyContribution: 10000,
+    useInvestibleCashFlow: false,
     globalInflationRate: 0.02,
     targetAllocation: {},
     toleranceBand: 5,
-    assetSnapshot: null,
+    assetSnapshots: [],
     currentAge: 35,
     retirementAge: 60,
     targetMonthlyRetirementIncome: 50000,

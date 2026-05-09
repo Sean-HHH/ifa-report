@@ -6,7 +6,7 @@ import type {
 } from '../../types/client'
 import {
   INVESTMENT_CATEGORY_LABELS, INCOME_TYPE_LABELS, EXPENSE_CATEGORY_LABELS, PAY_FREQUENCY_LABELS,
-  ASSET_CURRENCY_LABELS, ASSET_PURPOSE_LABELS,
+  ASSET_CURRENCY_LABELS, ASSET_PURPOSE_LABELS, RISK_RETURN,
 } from '../../types/client'
 import { calcCashFlow, convertCurrency, fmtAmount, fmtPct } from '../../utils/calculations'
 import type { FxRates } from '../../services/exchangeRate'
@@ -414,16 +414,26 @@ export function InputForm({ client: c, onChange, rates }: Props) {
           <>
             <Section title="風險承受度">
               <div className="grid grid-cols-3 gap-2">
-                {(['conservative', 'moderate', 'aggressive'] as RiskProfile[]).map(r => (
-                  <button key={r} onClick={() => patch({ riskProfile: r })}
-                    className={`py-2 rounded-lg text-sm font-medium border transition-all ${
-                      c.riskProfile === r
-                        ? 'bg-blue-500 text-white border-blue-500'
-                        : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
-                    }`}>
-                    {riskLabels[r]}
-                  </button>
-                ))}
+                {(['conservative', 'moderate', 'aggressive'] as RiskProfile[]).map(r => {
+                  const rr = RISK_RETURN[r]
+                  const isSelected = c.riskProfile === r
+                  return (
+                    <button key={r} onClick={() => patch({ riskProfile: r })}
+                      className={`py-2 px-1 rounded-lg text-sm font-medium border transition-all flex flex-col items-center gap-0.5 ${
+                        isSelected
+                          ? 'bg-blue-500 text-white border-blue-500'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
+                      }`}>
+                      <span>{riskLabels[r]}</span>
+                      <span className={`text-xs font-normal ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>
+                        {fmtPct(rr.conservative * 100)}/{fmtPct(rr.base * 100)}/{fmtPct(rr.aggressive * 100)}
+                      </span>
+                      {isSelected && c.customReturnRate !== null && (
+                        <span className="text-xs text-blue-200">自定 {fmtPct(c.customReturnRate * 100)}</span>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             </Section>
             <Section title="報酬率設定">
@@ -442,12 +452,30 @@ export function InputForm({ client: c, onChange, rates }: Props) {
             <Section title="定期投入">
               {(() => {
                 const cf = calcCashFlow(c)
-                const ratio = cf.investibleCashFlow > 0
+                const effectiveContribution = Math.max(0, cf.investibleCashFlow)
+                const usingCf = c.useInvestibleCashFlow
+                const displayValue = usingCf ? effectiveContribution : c.monthlyContribution
+                const ratio = !usingCf && cf.investibleCashFlow > 0
                   ? fmtPct(c.monthlyContribution / cf.investibleCashFlow * 100)
                   : null
                 return (
                   <div>
-                    <NumField label="每月定期投入" value={c.monthlyContribution} onChange={v => patch({ monthlyContribution: v })} />
+                    <div className="flex gap-1 mb-2">
+                      <button
+                        onClick={() => patch({ useInvestibleCashFlow: false })}
+                        className={`px-3 py-1 text-xs rounded-lg border transition-all ${!usingCf ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'}`}>
+                        自定金額
+                      </button>
+                      <button
+                        onClick={() => patch({ useInvestibleCashFlow: true, monthlyContribution: effectiveContribution })}
+                        className={`px-3 py-1 text-xs rounded-lg border transition-all ${usingCf ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'}`}>
+                        使用可投資現金流
+                      </button>
+                    </div>
+                    <NumField label="每月定期投入" value={displayValue} onChange={v => patch({ monthlyContribution: v })} disabled={usingCf} />
+                    {usingCf && cf.investibleCashFlow < 0 && (
+                      <div className="text-xs text-slate-400 mt-1 ml-1">可投資現金流為負，建議先優化收支</div>
+                    )}
                     {ratio && (
                       <div className="text-xs text-slate-400 mt-1 ml-1">
                         = 可投資現金流的 <span className="text-blue-500 font-medium">{ratio}</span>
@@ -481,6 +509,12 @@ export function InputForm({ client: c, onChange, rates }: Props) {
                   )
                 })}
               </div>
+              {(() => {
+                const total = Object.values(c.targetAllocation).reduce((s, v) => s + (v ?? 0), 0)
+                if (total === 0) return <div className="text-xs text-slate-400 mt-2">尚未設定目標配置</div>
+                if (total > 100) return <div className="text-xs text-red-500 font-medium mt-2">已超配 {total - 100}%，請調整</div>
+                return <div className="text-xs text-emerald-600 mt-2">已配置 {total}%，剩餘 {100 - total}%</div>
+              })()}
               <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-100">
                 <label className="text-sm text-slate-500 w-24 shrink-0">容許偏離</label>
                 <input
@@ -536,12 +570,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function NumField({ label, value, onChange, suffix }: { label: string; value: number; onChange: (v: number) => void; suffix?: string }) {
+function NumField({ label, value, onChange, suffix, disabled }: { label: string; value: number; onChange: (v: number) => void; suffix?: string; disabled?: boolean }) {
   return (
     <div className="flex items-center gap-3 mb-2">
       <label className="text-sm text-slate-500 w-36 shrink-0">{label}</label>
-      <input type="number" className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-36 focus:border-blue-300 outline-none"
-        value={value} onChange={e => onChange(Number(e.target.value))} />
+      <input type="number" className={`border rounded-lg px-3 py-2 text-sm w-36 outline-none transition-colors ${disabled ? 'border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed' : 'border-slate-200 focus:border-blue-300'}`}
+        value={value} onChange={e => !disabled && onChange(Number(e.target.value))} disabled={disabled} />
       {suffix && <span className="text-sm text-slate-400">{suffix}</span>}
     </div>
   )

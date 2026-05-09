@@ -4,6 +4,7 @@ import { useAppSettings } from './hooks/useAppSettings'
 import { ClientManager } from './components/ClientManager/ClientManager'
 import { InputForm } from './components/InputForm/InputForm'
 import { FxPanel } from './components/FxPanel'
+import { SnapshotPanel } from './components/SnapshotPanel'
 import { CashFlowReport } from './components/reports/CashFlowReport'
 import { AssetReport } from './components/reports/AssetReport'
 import { AssetGrowthReport } from './components/reports/AssetGrowthReport'
@@ -34,6 +35,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [printing, setPrinting] = useState(false)
   const [showFxPanel, setShowFxPanel] = useState(false)
+  const [showSnapshotPanel, setShowSnapshotPanel] = useState(false)
 
   const handleExport = async () => {
     if (!activeClient) return
@@ -123,6 +125,23 @@ export default function App() {
               匯率
             </button>
 
+            {/* Snapshot panel toggle */}
+            {activeClient && (
+              <button
+                onClick={() => setShowSnapshotPanel(v => !v)}
+                style={{
+                  fontSize: 12, padding: '5px 10px',
+                  border: `1px solid ${showSnapshotPanel ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                  borderRadius: 'var(--radius-sm)',
+                  background: showSnapshotPanel ? 'rgba(37,99,235,0.06)' : 'var(--color-surface)',
+                  color: showSnapshotPanel ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                  cursor: 'pointer',
+                }}
+              >
+                快照
+              </button>
+            )}
+
             {activeClient && (
               <button onClick={handleExport} disabled={printing} style={{
                 display: 'flex', alignItems: 'center', gap: 6,
@@ -141,6 +160,15 @@ export default function App() {
             )}
           </div>
         </header>
+
+        {/* Snapshot Panel (floating) */}
+        {showSnapshotPanel && activeClient && (
+          <SnapshotPanel
+            client={activeClient}
+            onUpdate={updateClient}
+            onClose={() => setShowSnapshotPanel(false)}
+          />
+        )}
 
         {/* FX Panel (floating) */}
         {showFxPanel && (

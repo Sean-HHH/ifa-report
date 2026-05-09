@@ -1,4 +1,4 @@
-import type { ClientProfile } from '../types/client'
+import type { ClientProfile, InvestmentItem } from '../types/client'
 import { RISK_RETURN, INVESTMENT_CATEGORY_LABELS } from '../types/client'
 import type { IncomeType, ExpenseCategory, PayFrequency, InvestmentCategory } from '../types/client'
 import type { FxRates } from '../services/exchangeRate'
@@ -363,12 +363,42 @@ export interface AssetPeriodChangeResult {
 }
 
 export function calcAssetPeriodChange(c: ClientProfile): AssetPeriodChangeResult | null {
-  if (!c.assetSnapshot) return null
-  const { periodLabel, openingAssets, netContribution, dividendIncome, fxImpact, fees } = c.assetSnapshot
+  const snap = c.assetSnapshots?.[0]
+  if (!snap) return null
+  const { periodLabel, openingAssets, netContribution, dividendIncome, fxImpact, fees } = snap
   const closingAssets = totalAssets(c)
   const investmentGain = closingAssets - openingAssets - netContribution - dividendIncome - fxImpact + fees
   const totalChange = closingAssets - openingAssets
   const totalChangePct = openingAssets > 0 ? (totalChange / openingAssets) * 100 : 0
+  return { periodLabel, openingAssets, netContribution, investmentGain, dividendIncome, fxImpact, fees, closingAssets, totalChange, totalChangePct }
+}
+
+export function calcCategoryBreakdown(
+  items: InvestmentItem[]
+): Partial<Record<InvestmentCategory, { amount: number; pct: number }>> {
+  const total = items.reduce((s, i) => s + i.amount, 0)
+  const sums: Partial<Record<InvestmentCategory, number>> = {}
+  for (const item of items) {
+    sums[item.category] = (sums[item.category] ?? 0) + item.amount
+  }
+  const result: Partial<Record<InvestmentCategory, { amount: number; pct: number }>> = {}
+  for (const [cat, amount] of Object.entries(sums) as [InvestmentCategory, number][]) {
+    result[cat] = { amount, pct: total > 0 ? (amount / total) * 100 : 0 }
+  }
+  return result
+}
+
+export function calcSnapshotComparison(
+  from: import('../types/client').AssetPeriodSnapshot,
+  to: import('../types/client').AssetPeriodSnapshot,
+): AssetPeriodChangeResult {
+  const { openingAssets } = from
+  const closingAssets = to.openingAssets
+  const { netContribution, dividendIncome, fxImpact, fees } = to
+  const investmentGain = closingAssets - openingAssets - netContribution - dividendIncome - fxImpact + fees
+  const totalChange = closingAssets - openingAssets
+  const totalChangePct = openingAssets > 0 ? (totalChange / openingAssets) * 100 : 0
+  const periodLabel = `${from.periodLabel} → ${to.periodLabel}`
   return { periodLabel, openingAssets, netContribution, investmentGain, dividendIncome, fxImpact, fees, closingAssets, totalChange, totalChangePct }
 }
 
