@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ShareModal } from './features/share/ShareModal'
 import { useClientStore } from './hooks/useClientStore'
 import { useAppSettings } from './hooks/useAppSettings'
 import { ClientManager } from './features/client/ClientManager'
@@ -36,6 +37,7 @@ export default function App() {
   const [printing, setPrinting] = useState(false)
   const [showFxPanel, setShowFxPanel] = useState(false)
   const [showSnapshotPanel, setShowSnapshotPanel] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
 
   const handleExport = async () => {
     if (!activeClient) return
@@ -48,6 +50,10 @@ export default function App() {
   const fxProps = { rates: effectiveRates, reportCurrency }
 
   return (
+    <>
+    {showShareModal && activeClient && (
+      <ShareModal client={activeClient} onClose={() => setShowShareModal(false)} />
+    )}
     <div style={{ display: 'flex', height: '100vh', background: 'var(--color-bg)', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', sans-serif" }}>
       {/* Sidebar — 列印時隱藏 */}
       <aside data-print-hide style={{
@@ -139,6 +145,19 @@ export default function App() {
                 }}
               >
                 快照
+              </button>
+            )}
+
+            {activeClient && (
+              <button onClick={() => setShowShareModal(true)} style={{
+                fontSize: 12, padding: '5px 10px',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--color-surface)',
+                color: 'var(--color-text-muted)',
+                cursor: 'pointer',
+              }}>
+                分享
               </button>
             )}
 
@@ -253,5 +272,6 @@ export default function App() {
         )}
       </div>
     </div>
+    </>
   )
 }
