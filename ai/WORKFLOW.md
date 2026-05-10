@@ -3,13 +3,23 @@
 ## 流程圖
 
 ```
-[你] plan mode 描述需求
+━━━━━━━━━━━━━━  規劃階段（一次完成）  ━━━━━━━━━━━━━━
+
+[你] plan mode 描述需求（一段話，可含多個需求）
          ↓
-[Planner] 填 Issue → 判斷 worktree 分法 → 填 AC
+[Planner] 兩層拆解：
+  1. 理解需求意圖
+  2. 分析系統改動範圍
+  3. 依 worktree 邊界切成 N 個 task
+  → 產出 N 個 TASK 檔案草稿（含 Branch、作業檔案、平行相容性）
          ↓
-[你] 確認 Issue + Worktree 分法 + AC
-  ├─ 單線 → 直接 Step 4
-  └─ 分 worktree → 你執行 git worktree add → 各 Agent 各自跑 Step 4–8
+[你] 確認 N 個 task 的邊界、AC、平行關係
+  → 確認後 task 檔案存入 ai/tasks/open/
+
+━━━━━━━━━━━━━━  實作階段（每個 task 獨立執行）  ━━━━━━━━━━━━━━
+
+[你] bash ai/task-pick.sh TASK-xxx
+  → 自動建立 worktree + branch，task 移入 in-progress
          ↓
 [Generator] Read → Edit（單一關注點）
          ↓
@@ -20,92 +30,91 @@
 [Harness] 執行 ai/run-tests.sh（機器驗證）
          ↓ 失敗 → 回到 Generator 修正
          ↓ 通過
-[你] Final approval → commit
+[你] Final approval → commit → merge（串行，依平行相容性決定順序）
 ```
 
 ---
 
-## Step 1：描述需求（你 → Planner 填 Issue）
+## Step 1：描述需求
 
-**行動：** 開啟 plan mode，用自然語言描述需求。不需要自己填表。
+**行動：** 開啟 plan mode，用自然語言描述需求。可以一次說多個需求，不需要自己切分或填表。
 
-**Planner 收到後：**
-1. 讀取 `ai/ISSUE_TEMPLATE.md` 格式
-2. 根據你的描述填寫完整 Issue，輸出給你確認
-3. 你確認 Issue 內容正確後，Planner 繼續 Step 2
+**重點：一段描述 ≠ 一個 task。**  
+Planner 會分析你的描述涉及哪些系統改動，再依 worktree 邊界切成若干個獨立 task。你不需要預先判斷要幾個 task。
 
-**Issue 確認重點：**
-- 任務標題是否精確？
-- 「不做什麼」有沒有遺漏的排除範圍？
-- 驗收重點是否可觀察、可驗證？
-
-**若 Issue 有誤：** 直接說哪裡不對，Planner 修正後再確認，不需要重新進入 plan mode。
+**若描述不夠具體：** Planner 會在 Step 2 之前先問你釐清問題，確認邊界後才拆解。
 
 ---
 
-## Step 2：Planner 拆解
+## Step 2：Planner 兩層拆解
 
-**觸發：** 收到填好的 Issue
+**觸發：** 收到需求描述  
 **讀取：** `ai/PROJECT.md` → `ai/PRODUCT.md` → `ai/DECISIONS.md` → `ai/AGENTS.md`
 
-**輸出格式：**
+### 兩層拆解流程
+
+**第一層：理解需求**  
+用自己的話重述使用者要達成的目標，確認意圖正確。
+
+**第二層：系統分析 → Task 切割**  
+1. 列出這個需求涉及的所有系統改動（哪些檔案要動、各自改什麼）
+2. 依《Worktree 決策指引》判斷哪些改動可以切成獨立 task
+3. 每個獨立 task = 一個 TASK 檔案，作業檔案集合不與其他 task 重疊
+
+### 輸出格式
+
 ```
-## Planner 輸出
+## Planner 拆解輸出
 
-### 理解確認
-[用自己的話重述任務，一段話]
+### 需求理解
+[用自己的話重述 Sean 的意圖，一段話]
 
-### 需修改的檔案
-- src/[路徑]：[預計改動說明]
-- src/[路徑]：[預計改動說明]
+### 系統改動總覽
+[列出這個需求涉及的所有系統改動，不分 task]
+- src/[路徑]：[要做什麼]
+- src/[路徑]：[要做什麼]
 
-### Worktree 分配
-（依下方《Worktree 決策指引》判斷）
+### Task 切割結果
+共 N 個 task：
 
-建議：單線執行 / 分 N 個 worktree
+**TASK-[ID]-A：[標題]**
+- 作業檔案：src/[路徑]
+- 可與以下 task 平行：TASK-[ID]-B（原因：檔案不重疊）
+- 需等以下 task 完成：無
 
-若建議單線 → 說明原因（例：共用 types/client.ts、有依賴順序）
+**TASK-[ID]-B：[標題]**
+- 作業檔案：src/[路徑]
+- 可與以下 task 平行：TASK-[ID]-A
+- 需等以下 task 完成：無
 
-若建議分 worktree → 填寫：
-| Worktree | Branch | 任務範圍 | 作業檔案 |
-|---|---|---|---|
-| A | feat/xxx | [任務說明] | [檔案清單] |
-| B | feat/yyy | [任務說明] | [檔案清單] |
+### Merge 順序
+任意順序 / A → B → C（原因：[說明依賴關係]）
 
-Merge 順序：A → B（或任意順序，說明原因）
-
-Sean 需要執行：
-  git worktree add .claude/worktrees/feat/xxx -b feat/xxx
-  git worktree add .claude/worktrees/feat/yyy -b feat/yyy
-
-### 新增/刪除依賴
-是 / 否（若是：說明套件名稱與理由）
-
-### 預期風險
-1. [風險描述]
-2. [風險描述]（至多 3 項）
-
-### AC（Acceptance Criteria）
-（依 ai/AC_TEMPLATE.md 填寫，Evaluator 驗收時逐項確認）
+### 各 Task 的 AC
+（每個 task 個別列出，Evaluator 驗收時逐項確認）
 ```
 
+**你確認後：** Planner 將每個 task 寫成獨立 TASK 檔案存入 `ai/tasks/open/`。  
 **移交給：** Sean 確認
 
 ---
 
-## Step 3：你確認 Plan
+## Step 3：你確認 Task 清單
 
-**行動：** 閱讀 Planner 輸出，確認：
-- 理解是否正確？
-- 修改範圍是否符合預期？（沒有偷偷擴大）
-- AC 是否完整？
-- Worktree 分法是否合理？（單線 / 幾個 worktree / merge 順序）
-
-**若 Planner 建議分 worktree，你在此步驟執行 git worktree add 命令，再開對應的 Agent session。**
+**行動：** 閱讀 Planner 拆解輸出，確認：
+- 需求理解是否正確？
+- 每個 task 的邊界是否合理？有沒有偷偷擴大或遺漏？
+- Task 之間的平行 / 依賴關係是否正確？
+- Merge 順序是否可接受？
+- 各 task 的 AC 是否可觀察、可驗證？
 
 **兩種回應：**
-- `ok` 或 `confirmed` → Generator 開始（單線），或各 worktree 的 Agent 各自開始
+- `ok` 或 `confirmed` → Planner 將 task 寫入 `ai/tasks/open/`，實作階段開始
 - 修改意見 → Planner 重新拆解（回到 Step 2）
+
+**實作階段啟動：**  
+每個 task 執行 `bash ai/task-pick.sh TASK-xxx`，自動建立 worktree + branch，再開 Agent session。
+可相容的 task 可同時 pick，不相容的 task 等前一個 merge 完才 pick。
 
 ---
 

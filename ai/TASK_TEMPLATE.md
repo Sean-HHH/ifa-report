@@ -5,14 +5,19 @@
 
 ---
 
-## [SECTION 1] 任務描述（Sean 填寫）
+## [SECTION 1] 任務描述（Planner 填寫）
+
+**來源需求**
+[Sean 的原始需求描述，一句話摘要。同一個需求拆出多個 task 時，各 task 的來源需求相同。]
+
+**Branch 名稱**
+`task/TASK-[ID]-[slug]`
 
 **背景**
 [為什麼要做這個？什麼情境需要？]
 
 **Objective（成功定義）**
-[完成這個任務後，使用者（IFA）能做到什麼原本做不到的事？一句話。]
-例：IFA 可以在退休報表上直接看到建議月儲蓄金額，不需要口頭換算。
+[完成這個 task 後，系統哪個部分的什麼行為改變了？一句話。]
 
 **要求（Scope）**
 [具體說明要改什麼或新增什麼]
@@ -20,15 +25,9 @@
 **不做什麼（Non-goals）**
 [明確排除的部分，避免 agent 擴大範圍]
 
-**受影響的模組（猜測）**
-- [ ] calculations.ts
-- [ ] types/client.ts
-- [ ] useClientStore.ts
-- [ ] InputForm
-- [ ] CashFlowReport / AssetGrowthReport / RetirementReport
-- [ ] pdfExport.ts
-- [ ] App.tsx
-- [ ] 其他：___
+**作業檔案（實作範圍）**
+[列出這個 task 會動到的所有檔案，worktree 隔離依此判斷]
+- src/[路徑]
 
 **Test Expectation（如何測試）**
 手動測試步驟：
@@ -48,12 +47,16 @@
 <!-- Planner 填寫 -->
 
 **理解確認**
-[用自己的話重述任務]
+[用自己的話重述這個 task 的實作邊界]
 
 **需修改的檔案**
 | 檔案 | 預計改動 |
 |------|---------|
 | src/... | ... |
+
+**平行相容性**
+可與以下 TASK 同時執行（作業檔案不重疊）：TASK-xxx, TASK-xxx
+需等以下 TASK 完成後才能開始：TASK-xxx（原因：[依賴說明]）
 
 **新增/刪除依賴**
 否 / 是（說明：）
