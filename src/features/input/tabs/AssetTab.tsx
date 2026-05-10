@@ -69,7 +69,9 @@ export function AssetTab({ c, patch, rates }: Props) {
                   )}
                 </div>
               )}
-              <button onClick={() => remove(i)} className="text-slate-300 hover:text-red-400 text-sm px-1">✕</button>
+              <button onClick={() => remove(i)} aria-label="刪除此項資產" className="text-slate-300 hover:text-red-400 transition-colors p-1 flex items-center" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
             </div>
             {isTradeable && (
               <div className="flex flex-wrap gap-2 items-center mt-1.5">

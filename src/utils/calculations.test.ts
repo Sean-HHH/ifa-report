@@ -29,8 +29,9 @@ function makeClient(overrides: Partial<ClientProfile> = {}): ClientProfile {
     targetAllocation: {},
     toleranceBand: 5,
     assetSnapshots: [],
-    currentAge: 35,
+    birthYear: new Date().getFullYear() - 35,
     retirementAge: 60,
+    retirementLifespan: 30,
     targetMonthlyRetirementIncome: 50000,
     majorExpenses: [],
     ...overrides,
@@ -190,9 +191,9 @@ describe('calcAssetGrowth', () => {
     expect(growth[0].aggressive).toBe(nw)
   })
 
-  it('年數 = retirementAge - currentAge + 1', () => {
-    const c = makeClient({ currentAge: 35, retirementAge: 60 })
-    expect(calcAssetGrowth(c)).toHaveLength(26)
+  it('固定回傳 30 筆資料', () => {
+    const c = makeClient({ birthYear: new Date().getFullYear() - 35, retirementAge: 60 })
+    expect(calcAssetGrowth(c)).toHaveLength(30)
   })
 
   it('customReturnRate 會覆蓋 riskProfile 預設值', () => {
@@ -424,7 +425,7 @@ describe('E2E: 完整客戶財務規劃流程', () => {
       liabilityItems: [{ label: '房貸', amount: 3000000, type: 'long_term' }],
       riskProfile: 'moderate',
       monthlyContribution: 20000,
-      currentAge: 35,
+      birthYear: new Date().getFullYear() - 35,
       retirementAge: 65,
       targetMonthlyRetirementIncome: 60000,
     })

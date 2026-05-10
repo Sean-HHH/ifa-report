@@ -9,8 +9,8 @@ import type { ClientProfile } from '../../types/client'
 import { INCOME_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '../../types/client'
 import type { IncomeType, ExpenseCategory } from '../../types/client'
 import { calcCashFlow, calcCashFlowProjection, calcMonthlyTimeline, convertCurrency, fmtAmount, fmtPct } from '../../utils/calculations'
-import type { FxRates } from '../../services/exchangeRate'
-import { StatCard } from './StatCard'
+import type { FxRates } from '../fx/exchangeRate'
+import { StatCard } from '../../shared/StatCard'
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement)
 
@@ -35,8 +35,9 @@ function NoteTag({ note }: { note?: string }) {
   return (
     <div className="relative inline-block">
       <button onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}
-        className="text-xs bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded cursor-help">
-        📝
+        className="text-xs bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded cursor-help inline-flex items-center gap-0.5">
+        <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+        備注
       </button>
       {show && (
         <div className="absolute left-0 top-6 z-10 bg-slate-800 text-white text-xs rounded-lg px-3 py-2 w-56 shadow-lg whitespace-pre-wrap">
@@ -127,7 +128,7 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
 
       {/* 三流瀑布圖 */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-500 mb-3">
+        <h3 className="text-sm font-semibold text-slate-700 mb-3">
           逐層扣除：固定收入 → 真實現金流 → 可投資現金流
         </h3>
         <div className="h-64">
@@ -137,10 +138,10 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
 
       {/* 財務健康指標 */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-500 mb-3">財務健康指標</h3>
+        <h3 className="text-sm font-semibold text-slate-700 mb-3">財務健康指標</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-slate-50 rounded-xl p-3">
-            <div className="text-xs text-slate-400 mb-1">收入穩定性</div>
+            <div className="text-xs text-slate-500 mb-1">收入穩定性</div>
             <div className={`text-lg font-bold ${
               cf.incomeStabilityRatio >= 70 ? 'text-emerald-600'
               : cf.incomeStabilityRatio >= 40 ? 'text-amber-500'
@@ -148,37 +149,37 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
             }`}>
               {fmtPct(cf.incomeStabilityRatio)}
             </div>
-            <div className="text-xs text-slate-400 mt-0.5">固定收入佔比</div>
+            <div className="text-xs text-slate-500 mt-0.5">固定收入佔比</div>
           </div>
           <div className="bg-slate-50 rounded-xl p-3">
-            <div className="text-xs text-slate-400 mb-1">固定支出比</div>
+            <div className="text-xs text-slate-500 mb-1">固定支出比</div>
             <div className="text-lg font-bold text-slate-700">
               {fmtPct(cf.fixedExpenseRatio)}
             </div>
-            <div className="text-xs text-slate-400 mt-0.5">生存＋責任 ÷ 總收入</div>
+            <div className="text-xs text-slate-500 mt-0.5">生存＋責任 ÷ 總收入</div>
           </div>
           <div className="bg-slate-50 rounded-xl p-3">
-            <div className="text-xs text-slate-400 mb-1">低意識支出比</div>
+            <div className="text-xs text-slate-500 mb-1">低意識支出比</div>
             <div className="text-lg font-bold text-slate-700">
               {fmtPct(cf.hiddenExpenseRatio)}
             </div>
-            <div className="text-xs text-slate-400 mt-0.5">隱性支出 ÷ 總支出</div>
+            <div className="text-xs text-slate-500 mt-0.5">隱性支出 ÷ 總支出</div>
           </div>
           <div className="bg-slate-50 rounded-xl p-3">
-            <div className="text-xs text-slate-400 mb-1">月投入比</div>
+            <div className="text-xs text-slate-500 mb-1">月投入比</div>
             <div className="text-lg font-bold text-blue-600">
               {cf.investibleCashFlow > 0
                 ? fmtPct(client.monthlyContribution / cf.investibleCashFlow * 100)
                 : '–'}
             </div>
-            <div className="text-xs text-slate-400 mt-0.5">月定期投入 ÷ 可投資</div>
+            <div className="text-xs text-slate-500 mt-0.5">月定期投入 ÷ 可投資</div>
           </div>
         </div>
       </div>
 
       {/* 5年現金流 Projection */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-500 mb-3">
+        <h3 className="text-sm font-semibold text-slate-700 mb-3">
           5年現金流趨勢（通膨 {fmtPct(client.globalInflationRate * 100)}）
         </h3>
         <div className="h-56 mb-4">
@@ -224,8 +225,8 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
           <table className="w-full text-xs text-slate-600">
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left py-1.5 pr-3 font-semibold text-slate-400">年份</th>
-                <th className="text-right py-1.5 pr-3 font-semibold text-slate-400">總收入</th>
+                <th className="text-left py-1.5 pr-3 font-semibold text-slate-600">年份</th>
+                <th className="text-right py-1.5 pr-3 font-semibold text-slate-600">總收入</th>
                 <th className="text-right py-1.5 pr-3 font-semibold text-blue-400">帳面</th>
                 <th className="text-right py-1.5 pr-3 font-semibold text-emerald-500">真實</th>
                 <th className="text-right py-1.5 font-semibold text-violet-500">可投資</th>
@@ -248,7 +249,7 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
 
       {/* 收入明細 */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-500 mb-2">收入明細</h3>
+        <h3 className="text-sm font-semibold text-slate-700 mb-2">收入明細</h3>
         <div className="space-y-1">
           {client.incomes.map((item, i) => (
             <div key={i} className="flex items-center justify-between py-2 px-3 bg-blue-50 rounded-lg text-sm">
@@ -279,7 +280,7 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
 
       {/* 支出明細 */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-500 mb-2">支出明細</h3>
+        <h3 className="text-sm font-semibold text-slate-700 mb-2">支出明細</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {client.expenses.map((e, i) => (
             <div key={i} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg text-sm">
@@ -305,19 +306,19 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
 
       {/* 現金流時序分析 */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-500 mb-3">現金流時序分析</h3>
+        <h3 className="text-sm font-semibold text-slate-700 mb-3">現金流時序分析</h3>
 
         {/* KPI 摘要列 */}
         <div className="flex flex-wrap gap-2 mb-4">
           <div className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-3 py-2 text-sm">
-            <span className="text-slate-400 text-xs">低谷月份</span>
+            <span className="text-slate-500 text-xs">低谷月份</span>
             {timeline.crunchMonths.length === 0
               ? <span className="text-emerald-600 font-medium text-xs">無</span>
               : <span className="text-red-600 font-medium text-xs">{timeline.crunchMonths.map(m => `${m}月`).join('、')}</span>
             }
           </div>
           <div className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-3 py-2 text-sm">
-            <span className="text-slate-400 text-xs">需要周轉</span>
+            <span className="text-slate-500 text-xs">需要周轉</span>
             {timeline.needsBridging
               ? <span className="text-red-600 font-medium text-xs">⚠ 是（{timeline.crunchMonths.length} 個月）</span>
               : <span className="text-emerald-600 font-medium text-xs">✓ 不需要</span>
@@ -325,7 +326,7 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
           </div>
           {timeline.worstMonth && (
             <div className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-3 py-2 text-sm">
-              <span className="text-slate-400 text-xs">最大缺口</span>
+              <span className="text-slate-500 text-xs">最大缺口</span>
               <span className="text-red-600 font-medium text-xs">
                 {timeline.worstMonth.month}月（−{disp(timeline.worstMonth.deficit, true)}）
               </span>
@@ -333,7 +334,7 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
           )}
           {timeline.incomeSpread > 0 && (
             <div className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-3 py-2 text-sm">
-              <span className="text-slate-400 text-xs">收入波動幅度</span>
+              <span className="text-slate-500 text-xs">收入波動幅度</span>
               <span className="text-amber-600 font-medium text-xs">{disp(timeline.incomeSpread, true)}</span>
             </div>
           )}

@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react'
-import type { FxRates } from '../services/exchangeRate'
+import type { FxRates } from './exchangeRate'
 
 const DISPLAY_CURRENCIES = ['USD', 'JPY', 'EUR', 'GBP', 'HKD', 'USDT'] as const
 
@@ -41,7 +41,9 @@ export function FxPanel({ apiRates, manualRates, onSetManualRate, onClearAll, la
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-text-primary)' }}>匯率設定（TWD 等值）</span>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: 16, lineHeight: 1 }}>×</button>
+        <button onClick={onClose} aria-label="關閉匯率設定" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: 4, borderRadius: 'var(--radius-sm)' }}>
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
       </div>
 
       <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 10 }}>

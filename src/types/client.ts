@@ -46,7 +46,7 @@ export interface ExpenseItem {
 
 export type InvestmentCategory =
   | 'cash' | 'real_estate'
-  | 'insurance' | 'stock' | 'fund' | 'deposit' | 'bond' | 'crypto' | 'other'
+  | 'insurance' | 'stock' | 'fund' | 'bond' | 'crypto' | 'other'
 
 export const INVESTMENT_CATEGORY_LABELS: Record<InvestmentCategory, string> = {
   cash: '現金存款',
@@ -54,7 +54,6 @@ export const INVESTMENT_CATEGORY_LABELS: Record<InvestmentCategory, string> = {
   insurance: '保險',
   stock: '股票',
   fund: '基金',
-  deposit: '定存',
   bond: '債券',
   crypto: '加密貨幣',
   other: '其他',
@@ -122,6 +121,11 @@ export interface ClientProfile {
   name: string
   updatedAt: string
 
+  // 基本資料
+  occupation?: string
+  consultationFocus?: string
+  consultationAdvice?: string[]
+
   // 基本財務狀況
   incomes: IncomeItem[]
   expenses: ExpenseItem[]
@@ -139,10 +143,15 @@ export interface ClientProfile {
   assetSnapshots: AssetPeriodSnapshot[]  // Layer 2 快照列表（最新在前）
 
   // 人生目標
-  currentAge: number
+  birthYear: number
   retirementAge: number
+  retirementLifespan: number
   targetMonthlyRetirementIncome: number
   majorExpenses: MajorExpense[]
+}
+
+export function calcCurrentAge(birthYear: number): number {
+  return new Date().getFullYear() - birthYear
 }
 
 export const RISK_RETURN: Record<RiskProfile, { conservative: number; base: number; aggressive: number }> = {
@@ -156,6 +165,9 @@ export function newClient(): ClientProfile {
     id: crypto.randomUUID(),
     name: '新客戶',
     updatedAt: new Date().toISOString(),
+    occupation: '',
+    consultationFocus: '',
+    consultationAdvice: [],
     incomes: [
       { label: '薪資收入', amount: 80000, type: 'fixed' },
     ],
@@ -167,9 +179,8 @@ export function newClient(): ClientProfile {
       { label: '娛樂', amount: 5000, category: 'quality' },
     ],
     assetItems: [
-      { label: '活存 / 定存', amount: 500000, category: 'cash' },
+      { label: '活存', amount: 500000, category: 'cash' },
       { label: '台股 ETF', amount: 200000, category: 'stock' },
-      { label: '定存', amount: 100000, category: 'deposit' },
     ],
     liabilityItems: [],
     riskProfile: 'moderate',
@@ -180,8 +191,9 @@ export function newClient(): ClientProfile {
     targetAllocation: {},
     toleranceBand: 5,
     assetSnapshots: [],
-    currentAge: 35,
+    birthYear: new Date().getFullYear() - 35,
     retirementAge: 60,
+    retirementLifespan: 30,
     targetMonthlyRetirementIncome: 50000,
     majorExpenses: [],
   }

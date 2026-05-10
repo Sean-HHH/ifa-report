@@ -68,9 +68,14 @@ function migrate(raw: any): ClientProfile {
     assetSnapshots = [{ id: String(Date.now()), ...raw.assetSnapshot }]
   }
 
+  // v9 → v10: currentAge → birthYear; add retirementLifespan
+  const currentYear = new Date().getFullYear()
+  const birthYear = raw.birthYear ?? (currentYear - (raw.currentAge ?? 35))
+  const retirementLifespan = raw.retirementLifespan ?? 30
+
   return {
     ...raw,
-    __schemaVersion: 9,
+    __schemaVersion: 10,
     assetItems: migratedAssetItems,
     liabilityItems: Array.isArray(raw.liabilityItems)
       ? raw.liabilityItems
@@ -81,8 +86,9 @@ function migrate(raw: any): ClientProfile {
     targetAllocation: raw.targetAllocation ?? {},
     toleranceBand: raw.toleranceBand ?? 5,
     assetSnapshots,
-    // v8 → v9: useInvestibleCashFlow toggle
     useInvestibleCashFlow: raw.useInvestibleCashFlow ?? false,
+    birthYear,
+    retirementLifespan,
   }
 }
 

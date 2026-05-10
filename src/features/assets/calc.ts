@@ -1,5 +1,5 @@
 import type { ClientProfile, InvestmentItem, InvestmentCategory } from '../../types/client'
-import { RISK_RETURN, INVESTMENT_CATEGORY_LABELS } from '../../types/client'
+import { RISK_RETURN, INVESTMENT_CATEGORY_LABELS, calcCurrentAge } from '../../types/client'
 import type { FxRates } from '../fx/exchangeRate'
 
 export function totalAssets(c: ClientProfile): number {
@@ -53,20 +53,21 @@ export function calcAssetGrowth(c: ClientProfile): GrowthYear[] {
     aggressive: c.customReturnRate !== null ? c.customReturnRate * 1.2 : rates.aggressive,
   }
 
+  const currentAge = calcCurrentAge(c.birthYear)
+  const currentYear = new Date().getFullYear()
   const nw = netWorth(c)
-  const years = c.retirementAge - c.currentAge
   const monthly = c.monthlyContribution
   const result: GrowthYear[] = []
 
   let cv = nw, bv = nw, av = nw, contributed = 0
 
-  for (let y = 0; y <= years; y++) {
-    const targetYear = new Date().getFullYear() + y
+  for (let y = 0; y < 30; y++) {
+    const targetYear = currentYear + y
     const majorOut = c.majorExpenses
       .filter(e => e.year === targetYear)
       .reduce((s, e) => s + e.amount * Math.pow(1 + c.globalInflationRate, y), 0)
 
-    result.push({ year: targetYear, age: c.currentAge + y, conservative: cv, base: bv, aggressive: av, contributed })
+    result.push({ year: targetYear, age: currentAge + y, conservative: cv, base: bv, aggressive: av, contributed })
 
     cv = (cv - majorOut) * (1 + effectiveRates.conservative) + monthly * 12
     bv = (bv - majorOut) * (1 + effectiveRates.base) + monthly * 12

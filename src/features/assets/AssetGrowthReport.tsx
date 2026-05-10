@@ -6,9 +6,9 @@ import {
 } from 'chart.js'
 import type { ClientProfile } from '../../types/client'
 import { calcAssetGrowth, convertCurrency, fmtAmount, fmtPct, netWorth } from '../../utils/calculations'
-import { RISK_RETURN } from '../../types/client'
-import type { FxRates } from '../../services/exchangeRate'
-import { StatCard } from './StatCard'
+import { RISK_RETURN, calcCurrentAge } from '../../types/client'
+import type { FxRates } from '../fx/exchangeRate'
+import { StatCard } from '../../shared/StatCard'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -19,7 +19,7 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
   const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, fxRates)
   const disp = (n: number, compact = false) => fmtAmount(rc(n), reportCurrency, compact)
 
-  const labels = data.map(d => `${d.age}歲`)
+  const labels = data.map(d => `${d.year} / ${d.age}歲`)
   const contributed = data.map(d => nw + d.contributed)
 
   const chartData = {
@@ -102,20 +102,20 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
 
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div className="bg-slate-50 rounded-xl p-4">
-          <div className="text-slate-500 mb-1">退休年齡</div>
+          <div className="text-sm text-slate-500 mb-1">退休年齡</div>
           <div className="text-2xl font-bold text-slate-800">{client.retirementAge} 歲</div>
-          <div className="text-slate-400 text-xs mt-1">距今 {client.retirementAge - client.currentAge} 年</div>
+          <div className="text-slate-500 text-xs mt-1">距今 {client.retirementAge - calcCurrentAge(client.birthYear)} 年</div>
         </div>
         <div className="bg-slate-50 rounded-xl p-4">
-          <div className="text-slate-500 mb-1">每月定期投入</div>
+          <div className="text-sm text-slate-500 mb-1">每月定期投入</div>
           <div className="text-2xl font-bold text-slate-800">{disp(client.monthlyContribution, true)}</div>
-          <div className="text-slate-400 text-xs mt-1">年化 {disp(client.monthlyContribution * 12, true)}</div>
+          <div className="text-slate-500 text-xs mt-1">年化 {disp(client.monthlyContribution * 12, true)}</div>
         </div>
       </div>
 
       {client.majorExpenses.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-slate-500 mb-2">重大支出時程</h3>
+          <h3 className="text-sm font-semibold text-slate-700 mb-2">重大支出時程</h3>
           <div className="space-y-1">
             {client.majorExpenses.map((e, i) => (
               <div key={i} className="flex justify-between items-center py-2 px-3 bg-red-50 rounded-lg text-sm">

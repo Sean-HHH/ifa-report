@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { fetchRates, FALLBACK_RATES, getCachedTimestamp } from '../services/exchangeRate'
-import type { FxRates } from '../services/exchangeRate'
+import { fetchRates, FALLBACK_RATES, getCachedTimestamp } from './exchangeRate'
+import type { FxRates } from './exchangeRate'
 
 const RC_KEY = 'ifa_report_currency'
 const MR_KEY = 'ifa_manual_rates'

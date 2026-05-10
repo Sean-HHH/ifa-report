@@ -10,8 +10,8 @@ import {
   convertCurrency, fmtAmount, fmtPct,
   calcAssetAllocation, calcAssetDeviation, calcCategoryBreakdown,
 } from '../../utils/calculations'
-import type { FxRates } from '../../services/exchangeRate'
-import { StatCard } from './StatCard'
+import type { FxRates } from '../fx/exchangeRate'
+import { StatCard } from '../../shared/StatCard'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -32,8 +32,9 @@ function NoteTag({ note }: { note?: string }) {
   return (
     <div className="relative inline-block">
       <button onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}
-        className="text-xs bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded cursor-help">
-        📝
+        className="text-xs bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded cursor-help inline-flex items-center gap-0.5">
+        <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+        備注
       </button>
       {show && (
         <div className="absolute left-0 top-6 z-10 bg-slate-800 text-white text-xs rounded-lg px-3 py-2 w-56 shadow-lg whitespace-pre-wrap">
@@ -45,12 +46,12 @@ function NoteTag({ note }: { note?: string }) {
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-sm font-semibold text-slate-500 mb-3">{children}</h3>
+  return <h3 className="text-sm font-semibold text-slate-700 mb-3">{children}</h3>
 }
 
 function EmptyHint({ text }: { text: string }) {
   return (
-    <div className="border border-dashed border-slate-200 rounded-xl py-6 text-center text-xs text-slate-400">
+    <div className="border border-dashed border-slate-200 rounded-xl py-6 text-center text-xs text-slate-500">
       {text}
     </div>
   )
@@ -95,11 +96,11 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
         <StatCard label="總資產" value={disp(totalInv, true)} color="green" />
         <StatCard label="總負債" value={disp(totalLiab, true)} color={totalLiab > 0 ? 'red' : 'green'} />
         <div className={`rounded-xl p-3 border ${alloc.isConcentrated ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
-          <div className="text-xs text-slate-400 mb-1">最大單一持倉</div>
+          <div className="text-xs text-slate-500 mb-1">最大單一持倉</div>
           {alloc.topHolding ? (
             <>
               <div className="text-base font-bold text-slate-700">{fmtPct(alloc.topHolding.pct)}</div>
-              <div className="text-xs text-slate-400 truncate">{alloc.topHolding.label}</div>
+              <div className="text-xs text-slate-500 truncate">{alloc.topHolding.label}</div>
               {alloc.isConcentrated && (
                 <div className="text-xs text-amber-600 font-medium mt-0.5">⚠ 集中度偏高</div>
               )}
@@ -116,15 +117,15 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
           <SectionTitle>資產分布 · 總計 {disp(totalInv, true)}</SectionTitle>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-slate-50 rounded-xl p-3">
-              <div className="text-xs text-center text-slate-400 mb-2 font-medium">資產類別</div>
+              <div className="text-xs text-center text-slate-500 mb-2 font-medium">資產類別</div>
               <div className="h-44"><Pie data={catPie} options={PIE_OPTS} /></div>
             </div>
             <div className="bg-slate-50 rounded-xl p-3">
-              <div className="text-xs text-center text-slate-400 mb-2 font-medium">幣別分布</div>
+              <div className="text-xs text-center text-slate-500 mb-2 font-medium">幣別分布</div>
               <div className="h-44"><Pie data={curPie} options={PIE_OPTS} /></div>
             </div>
             <div className="bg-slate-50 rounded-xl p-3">
-              <div className="text-xs text-center text-slate-400 mb-2 font-medium">資產用途</div>
+              <div className="text-xs text-center text-slate-500 mb-2 font-medium">資產用途</div>
               <div className="h-44"><Pie data={purPie} options={PIE_OPTS} /></div>
             </div>
           </div>
@@ -162,7 +163,7 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
                     {dispItem(item.amount, item.currency ?? 'TWD')}
                   </span>
                   {item.currency && item.currency !== 'TWD' && item.currency !== reportCurrency && (
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-slate-500">
                       {fmtAmount(item.amount, item.currency, true)} 原幣
                     </span>
                   )}
@@ -306,7 +307,7 @@ function Layer2({ client }: { client: ClientProfile }) {
 
       {/* Total assets */}
       <div className="bg-slate-50 rounded-xl px-4 py-3">
-        <div className="text-xs text-slate-400 mb-1">總資產</div>
+        <div className="text-xs text-slate-500 mb-1">總資產</div>
         <div className="flex items-baseline gap-2 flex-wrap">
           <span className="text-sm text-slate-500">{fmtWan(aTotal)}</span>
           <span className="text-slate-300 text-xs">→</span>
@@ -320,7 +321,7 @@ function Layer2({ client }: { client: ClientProfile }) {
       {/* Category breakdown */}
       {(aBreakdown || bBreakdown) ? (
         <div>
-          <div className="text-xs text-slate-400 mb-2">類別配置</div>
+          <div className="text-xs text-slate-500 mb-2">類別配置</div>
           <div className="space-y-1.5">
             {catRows.map(({ cat, aPct, bPct, delta }) => {
               const isUp   = delta > 0.05
@@ -332,7 +333,7 @@ function Layer2({ client }: { client: ClientProfile }) {
               return (
                 <div key={cat} className="flex items-center gap-2 text-sm">
                   <span className="w-20 text-slate-500 text-xs shrink-0">{INVESTMENT_CATEGORY_LABELS[cat]}</span>
-                  <span className="text-slate-400 text-xs w-10 text-right">{fmtPct(aPct)}</span>
+                  <span className="text-slate-500 text-xs w-10 text-right">{fmtPct(aPct)}</span>
                   <span className="text-slate-300 text-xs">→</span>
                   <span className="text-slate-700 text-xs w-10 text-right">{fmtPct(bPct)}</span>
                   <span className={`text-xs font-medium ml-1 ${deltaColor}`}>{deltaText}</span>
@@ -342,7 +343,7 @@ function Layer2({ client }: { client: ClientProfile }) {
           </div>
         </div>
       ) : (
-        <div className="text-xs text-slate-400">無歷史配置資料（舊快照不含明細）</div>
+        <div className="text-xs text-slate-500">無歷史配置資料（舊快照不含明細）</div>
       )}
     </div>
   )
@@ -363,7 +364,7 @@ function Layer3({ client, rates, reportCurrency }: { client: ClientProfile } & F
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+      <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
         <span>容許區間：±{client.toleranceBand}%</span>
         {deviation.needsRebalance && (
           <span className="bg-amber-100 text-amber-600 px-2 py-0.5 rounded font-medium">建議再平衡</span>
@@ -374,7 +375,7 @@ function Layer3({ client, rates, reportCurrency }: { client: ClientProfile } & F
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-xs text-slate-400 border-b border-slate-100">
+            <tr className="text-xs text-slate-600 border-b border-slate-100">
               <th className="text-left pb-2 pl-2">資產類別</th>
               <th className="text-right pb-2">目標%</th>
               <th className="text-right pb-2">實際%</th>
@@ -387,7 +388,7 @@ function Layer3({ client, rates, reportCurrency }: { client: ClientProfile } & F
             {deviation.items.map((item, i) => (
               <tr key={i} className={`border-b border-slate-50 ${!item.withinTolerance ? 'bg-amber-50' : ''}`}>
                 <td className="py-2 pl-2 font-medium text-slate-700">{item.label}</td>
-                <td className="text-right text-slate-400">{fmtPct(item.targetPct)}</td>
+                <td className="text-right text-slate-500">{fmtPct(item.targetPct)}</td>
                 <td className="text-right text-slate-600">{fmtPct(item.actualPct)}</td>
                 <td className={`text-right font-medium ${item.deviation > 0 ? 'text-orange-500' : item.deviation < 0 ? 'text-blue-500' : 'text-slate-400'}`}>
                   {item.deviation >= 0 ? '+' : ''}{fmtPct(item.deviation)}

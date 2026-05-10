@@ -32,7 +32,9 @@ export function ExpenseTab({ c, patch }: Props) {
                 value={item.label} onChange={e => update(i, { label: e.target.value })} />
               <input type="number" className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
                 value={item.amount} onChange={e => update(i, { amount: Number(e.target.value) })} />
-              <button onClick={() => remove(i)} className="text-slate-300 hover:text-red-400 text-sm px-1">✕</button>
+              <button onClick={() => remove(i)} aria-label="刪除此筆支出" className="text-slate-300 hover:text-red-400 transition-colors p-1 flex items-center" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
             </div>
             <div className="flex flex-wrap items-center gap-2 mt-1.5">
               <span className="text-xs text-slate-400">頻率</span>

@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useClientStore } from './hooks/useClientStore'
 import { useAppSettings } from './hooks/useAppSettings'
-import { ClientManager } from './components/ClientManager/ClientManager'
-import { InputForm } from './components/InputForm/InputForm'
-import { FxPanel } from './components/FxPanel'
-import { SnapshotPanel } from './components/SnapshotPanel'
-import { CashFlowReport } from './components/reports/CashFlowReport'
-import { AssetReport } from './components/reports/AssetReport'
-import { AssetGrowthReport } from './components/reports/AssetGrowthReport'
-import { RetirementReport } from './components/reports/RetirementReport'
+import { ClientManager } from './features/client/ClientManager'
+import { InputForm } from './features/input/InputForm'
+import { FxPanel } from './features/fx/FxPanel'
+import { SnapshotPanel } from './features/assets/SnapshotPanel'
+import { CashFlowReport } from './features/cashflow/CashFlowReport'
+import { AssetReport } from './features/assets/AssetReport'
+import { AssetGrowthReport } from './features/assets/AssetGrowthReport'
+import { RetirementReport } from './features/retirement/RetirementReport'
 
 type ReportTab = 'cashflow' | 'assets' | 'growth' | 'retirement'
 
@@ -185,13 +185,22 @@ export default function App() {
 
         {!activeClient ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 56, marginBottom: 16 }}>📊</div>
-              <div style={{ color: 'var(--color-text-secondary)', fontWeight: 500, marginBottom: 8 }}>選擇或建立一位客戶開始規劃</div>
+            <div style={{ textAlign: 'center', padding: '40px 24px' }}>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 80, height: 80, borderRadius: 20,
+                background: 'var(--color-primary-muted)', marginBottom: 20,
+              }}>
+                <svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-primary)' }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <div style={{ color: 'var(--color-text-primary)', fontWeight: 600, fontSize: 16, marginBottom: 6 }}>選擇或建立一位客戶開始規劃</div>
+              <div style={{ color: 'var(--color-text-muted)', fontSize: 13, marginBottom: 24 }}>從左側客戶列表選擇，或建立新客戶</div>
               <button onClick={createClient} style={{
-                marginTop: 12, background: 'var(--color-primary)', color: '#fff', border: 'none',
+                background: 'var(--color-primary)', color: '#fff', border: 'none',
                 cursor: 'pointer', fontSize: 14, fontWeight: 600, padding: '9px 22px',
-                borderRadius: 'var(--radius-md)', boxShadow: '0 1px 4px rgba(37,99,235,0.3)',
+                borderRadius: 'var(--radius-md)', boxShadow: '0 1px 4px rgba(30,64,175,0.3)',
               }}>
                 建立第一位客戶
               </button>

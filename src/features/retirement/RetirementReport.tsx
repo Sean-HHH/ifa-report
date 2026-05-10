@@ -6,8 +6,8 @@ import {
 } from 'chart.js'
 import type { ClientProfile } from '../../types/client'
 import { calcRetirement, convertCurrency, fmtAmount, fmtPct } from '../../utils/calculations'
-import type { FxRates } from '../../services/exchangeRate'
-import { StatCard } from './StatCard'
+import type { FxRates } from '../fx/exchangeRate'
+import { StatCard } from '../../shared/StatCard'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler)
 
@@ -66,13 +66,13 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <h3 className="text-sm font-semibold text-slate-500 mb-3">目標 vs 預計退休資產</h3>
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">目標 vs 預計退休資產</h3>
           <div className="h-56">
             <Bar data={gapData} options={{ responsive: true, plugins: { legend: { display: false } }, scales: axisOpts as never }} />
           </div>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-slate-500 mb-3">退休後提領模擬（30年）</h3>
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">退休後提領模擬（30年）</h3>
           <div className="h-56">
             <Line data={withdrawData} options={{ responsive: true, plugins: { legend: { display: false } }, scales: axisOpts as never }} />
           </div>
@@ -81,11 +81,11 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
         <div className="bg-slate-50 rounded-xl p-4">
-          <div className="text-slate-500 mb-1">目標月退休現金流</div>
+          <div className="text-sm text-slate-500 mb-1">目標月退休現金流</div>
           <div className="text-xl font-bold text-slate-800">{disp(client.targetMonthlyRetirementIncome, true)}</div>
         </div>
         <div className="bg-slate-50 rounded-xl p-4">
-          <div className="text-slate-500 mb-1">所需退休資金（25×）</div>
+          <div className="text-sm text-slate-500 mb-1">所需退休資金（25×）</div>
           <div className="text-xl font-bold text-slate-800">{disp(r.targetAsset, true)}</div>
         </div>
         <div className={`rounded-xl p-4 ${depletedAge ? 'bg-red-50' : 'bg-emerald-50'}`}>

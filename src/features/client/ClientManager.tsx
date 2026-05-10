@@ -8,36 +8,80 @@ interface Props {
   onDelete: (id: string) => void
 }
 
+function XIcon() {
+  return (
+    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  )
+}
+
 export function ClientManager({ clients, activeId, onSelect, onCreate, onDelete }: Props) {
   return (
-    <div className="flex flex-col gap-2">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {clients.map(c => (
         <div
           key={c.id}
-          className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all border ${
-            c.id === activeId
-              ? 'bg-blue-50 border-blue-300 text-blue-800'
-              : 'bg-white border-slate-200 hover:border-blue-200 hover:bg-blue-50/30'
-          }`}
           onClick={() => onSelect(c.id)}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
+            transition: 'background 0.15s',
+            background: c.id === activeId ? 'var(--color-sidebar-active)' : 'transparent',
+            border: c.id === activeId ? '1px solid rgba(99,131,235,0.3)' : '1px solid transparent',
+          }}
+          onMouseEnter={e => {
+            if (c.id !== activeId) (e.currentTarget as HTMLDivElement).style.background = 'var(--color-sidebar-hover)'
+          }}
+          onMouseLeave={e => {
+            if (c.id !== activeId) (e.currentTarget as HTMLDivElement).style.background = 'transparent'
+          }}
         >
-          <div>
-            <div className="font-medium text-sm">{c.name}</div>
-            <div className="text-xs text-slate-400 mt-0.5">
+          <div style={{ minWidth: 0 }}>
+            <div style={{
+              fontWeight: 500, fontSize: 13,
+              color: c.id === activeId ? 'var(--color-sidebar-text)' : 'var(--color-sidebar-text)',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>{c.name}</div>
+            <div style={{ fontSize: 11, color: 'var(--color-sidebar-text-muted)', marginTop: 2 }}>
               {new Date(c.updatedAt).toLocaleDateString('zh-TW')}
             </div>
           </div>
           <button
             onClick={e => { e.stopPropagation(); onDelete(c.id) }}
-            className="text-slate-300 hover:text-red-400 transition-colors text-sm px-1"
+            aria-label="刪除客戶"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--color-sidebar-text-muted)', padding: 4, borderRadius: 4,
+              display: 'flex', alignItems: 'center', flexShrink: 0,
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.color = '#f87171'}
+            onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-sidebar-text-muted)'}
           >
-            ✕
+            <XIcon />
           </button>
         </div>
       ))}
       <button
         onClick={onCreate}
-        className="mt-2 p-3 rounded-lg border-2 border-dashed border-slate-200 text-slate-400 text-sm hover:border-blue-300 hover:text-blue-400 transition-all"
+        style={{
+          marginTop: 4, padding: '9px 12px',
+          borderRadius: 8, border: '1px dashed rgba(148,163,184,0.35)',
+          background: 'transparent', color: 'var(--color-sidebar-text-muted)',
+          fontSize: 13, cursor: 'pointer', textAlign: 'left',
+          transition: 'border-color 0.15s, color 0.15s',
+        }}
+        onMouseEnter={e => {
+          const btn = e.currentTarget as HTMLButtonElement
+          btn.style.borderColor = 'rgba(99,131,235,0.5)'
+          btn.style.color = 'var(--color-sidebar-text)'
+        }}
+        onMouseLeave={e => {
+          const btn = e.currentTarget as HTMLButtonElement
+          btn.style.borderColor = 'rgba(148,163,184,0.35)'
+          btn.style.color = 'var(--color-sidebar-text-muted)'
+        }}
       >
         + 新增客戶
       </button>
