@@ -154,6 +154,22 @@ export function calcCurrentAge(birthYear: number): number {
   return new Date().getFullYear() - birthYear
 }
 
+export interface VisibleModules {
+  basicInfo: boolean
+  assetGrowth: boolean
+  retirement: boolean
+  cashflow: boolean
+}
+
+export interface SharedSnapshot {
+  id: string
+  snapshot_data: ClientProfile
+  visible_modules: VisibleModules
+  password_hash: string
+  created_at: string
+  expires_at?: string | null
+}
+
 export const RISK_RETURN: Record<RiskProfile, { conservative: number; base: number; aggressive: number }> = {
   conservative: { conservative: 0.03, base: 0.05, aggressive: 0.07 },
   moderate:     { conservative: 0.04, base: 0.07, aggressive: 0.10 },
