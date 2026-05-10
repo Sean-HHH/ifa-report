@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import type { ClientProfile, VisibleModules } from '../../types/client'
 import { PasswordGate } from './PasswordGate'
+import { BasicInfoPage } from './BasicInfoPage'
 
 type LoadState = 'loading' | 'not_found' | 'pending_password' | 'verified'
 
@@ -59,17 +60,15 @@ export function ClientViewPage() {
     )
   }
 
-  // verified — placeholder until TASK-017/018
+  // verified
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', sans-serif" }}>
-      <div style={{ textAlign: 'center', color: 'var(--color-text-primary)', fontSize: 15 }}>
-        已驗證，快照載入中…
-        {snapshotData && visibleModules && (
-          <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 8 }}>
-            客戶：{snapshotData.name}
-          </div>
-        )}
-      </div>
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg)', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', sans-serif" }}>
+      <header style={{ background: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', padding: '14px 24px' }}>
+        <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--color-text-primary)' }}>{snapshotData?.name ?? ''} 的財務規劃報告</div>
+      </header>
+      {snapshotData && visibleModules?.basicInfo && (
+        <BasicInfoPage client={snapshotData} />
+      )}
     </div>
   )
 }
