@@ -50,7 +50,7 @@ export function InputForm({ client: c, onChange, rates }: Props) {
       <div className="flex border-b border-slate-100">
         {TABS.map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 py-2.5 text-xs font-medium transition-colors ${
+            className={`px-4 py-2.5 text-xs font-medium transition-colors whitespace-nowrap ${
               tab === t ? 'border-b-2 border-blue-800 text-blue-800' : 'text-slate-500 hover:text-slate-700'
             }`}>
             {TAB_LABELS[t]}
