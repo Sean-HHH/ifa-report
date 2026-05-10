@@ -102,10 +102,14 @@
 <!-- Generator 填寫 -->
 
 **已修改的檔案**
-- （待填）
+- `src/pages/ClientView/index.tsx`（從空殼擴充為 fetch + gate 容器）
+- `src/pages/ClientView/PasswordGate.tsx`（新增）
 
 **設計決策**
-（待填）
+- `loadState` 用 lazy initializer 初始化（`() => id ? 'loading' : 'not_found'`），避免 effect 內同步呼叫 setState 觸發 lint 規則
+- SHA-256 hash 使用 `crypto.subtle.digest`，與 TASK-015 ShareModal 邏輯對稱
+- 驗證通過後持有 `snapshotData` 與 `visibleModules` 在 state，供 TASK-017/018 子頁取用
+- 驗證通過後顯示佔位文字 + 客戶名稱（快照已確認載入）
 
 ---
 
