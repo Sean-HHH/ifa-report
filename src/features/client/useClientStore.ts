@@ -73,10 +73,22 @@ function migrate(raw: any): ClientProfile {
   const birthYear = raw.birthYear ?? (currentYear - (raw.currentAge ?? 35))
   const retirementLifespan = raw.retirementLifespan ?? 30
 
+  // v10 → v11: InvestmentItem 補 id；AssetPeriodSnapshot 補 ledgerEntries
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const v11AssetItems = migratedAssetItems.map((item: any) => ({
+    id: item.id ?? crypto.randomUUID(),
+    ...item,
+  }))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const v11Snapshots = (assetSnapshots as any[]).map((s: any) => ({
+    ledgerEntries: [],
+    ...s,
+  }))
+
   return {
     ...raw,
-    __schemaVersion: 10,
-    assetItems: migratedAssetItems,
+    __schemaVersion: 11,
+    assetItems: v11AssetItems,
     liabilityItems: Array.isArray(raw.liabilityItems)
       ? raw.liabilityItems
       : (raw.liabilities ? [{ label: '負債', amount: raw.liabilities, type: 'long_term' }] : []),
@@ -85,7 +97,7 @@ function migrate(raw: any): ClientProfile {
     globalInflationRate: raw.globalInflationRate ?? 0.02,
     targetAllocation: raw.targetAllocation ?? {},
     toleranceBand: raw.toleranceBand ?? 5,
-    assetSnapshots,
+    assetSnapshots: v11Snapshots,
     useInvestibleCashFlow: raw.useInvestibleCashFlow ?? false,
     birthYear,
     retirementLifespan,

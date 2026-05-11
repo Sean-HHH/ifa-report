@@ -17,7 +17,7 @@ export function AssetTab({ c, patch, rates }: Props) {
 
   const update = (i: number, p: Partial<InvestmentItem>) =>
     patch({ assetItems: c.assetItems.map((item, idx) => idx === i ? { ...item, ...p } : item) })
-  const add = () => patch({ assetItems: [...c.assetItems, { label: '新項目', amount: 0, category: 'cash', purpose: 'emergency' }] })
+  const add = () => patch({ assetItems: [...c.assetItems, { id: crypto.randomUUID(), label: '新項目', amount: 0, category: 'cash', purpose: 'emergency' }] })
   const remove = (i: number) => patch({ assetItems: c.assetItems.filter((_, idx) => idx !== i) })
 
   const handleCategoryChange = (i: number, cat: InvestmentCategory) => {

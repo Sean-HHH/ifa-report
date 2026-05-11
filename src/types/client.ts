@@ -74,6 +74,22 @@ export const ASSET_PURPOSE_LABELS: Record<AssetPurpose, string> = {
   income: '收益型', protection: '積極型',
 }
 
+export interface LedgerLine {
+  id: string
+  assetItemId: string
+  amountDelta: number
+  qtyDelta?: number
+  price?: number
+  note?: string
+}
+
+export interface LedgerEntry {
+  id: string
+  description: string
+  date: string
+  lines: LedgerLine[]
+}
+
 export interface AssetPeriodSnapshot {
   id: string
   periodLabel: string
@@ -83,10 +99,14 @@ export interface AssetPeriodSnapshot {
   dividendIncome: number
   fxImpact: number
   fees: number
-  assetItems?: InvestmentItem[]  // 快照當時的資產明細，供類別配置比較用
+  assetItems?: InvestmentItem[]
+  ledgerEntries?: LedgerEntry[]
+  closingAssets?: number
+  openingAssetItems?: InvestmentItem[]
 }
 
 export interface InvestmentItem {
+  id: string
   label: string
   amount: number
   category: InvestmentCategory
@@ -156,9 +176,10 @@ export function calcCurrentAge(birthYear: number): number {
 
 export interface VisibleModules {
   basicInfo: boolean
+  cashflow: boolean
+  assets: boolean
   assetGrowth: boolean
   retirement: boolean
-  cashflow: boolean
 }
 
 export interface SharedSnapshot {
@@ -195,8 +216,8 @@ export function newClient(): ClientProfile {
       { label: '娛樂', amount: 5000, category: 'quality' },
     ],
     assetItems: [
-      { label: '活存', amount: 500000, category: 'cash' },
-      { label: '台股 ETF', amount: 200000, category: 'stock' },
+      { id: crypto.randomUUID(), label: '活存', amount: 500000, category: 'cash' },
+      { id: crypto.randomUUID(), label: '台股 ETF', amount: 200000, category: 'stock' },
     ],
     liabilityItems: [],
     riskProfile: 'moderate',

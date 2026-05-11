@@ -19,7 +19,7 @@ function makeClient(overrides: Partial<ClientProfile> = {}): ClientProfile {
       { label: '房租', amount: 20000, category: 'survival' },
       { label: '飲食', amount: 10000, category: 'survival' },
     ],
-    assetItems: [{ label: '現金', amount: 1000000, category: 'cash' }],
+    assetItems: [{ id: 'a1', label: '現金', amount: 1000000, category: 'cash' }],
     liabilityItems: [],
     riskProfile: 'moderate',
     customReturnRate: null,
@@ -141,8 +141,8 @@ describe('資產負債', () => {
   it('totalAssets 加總所有資產', () => {
     const c = makeClient({
       assetItems: [
-        { label: '現金', amount: 500000, category: 'cash' },
-        { label: '股票', amount: 200000, category: 'stock' },
+        { id: 'a1', label: '現金', amount: 500000, category: 'cash' },
+        { id: 'a2', label: '股票', amount: 200000, category: 'stock' },
       ],
     })
     expect(totalAssets(c)).toBe(700000)
@@ -160,7 +160,7 @@ describe('資產負債', () => {
 
   it('netWorth = 總資產 - 總負債', () => {
     const c = makeClient({
-      assetItems: [{ label: '現金', amount: 2000000, category: 'cash' }],
+      assetItems: [{ id: 'a1', label: '現金', amount: 2000000, category: 'cash' }],
       liabilityItems: [{ label: '房貸', amount: 1000000, type: 'long_term' }],
     })
     expect(netWorth(c)).toBe(1000000)
@@ -220,7 +220,7 @@ describe('calcRetirement', () => {
 
   it('充足資產時 requiredMonthlySavings = 0', () => {
     const c = makeClient({
-      assetItems: [{ label: '現金', amount: 100_000_000, category: 'cash' }],
+      assetItems: [{ id: 'a1', label: '現金', amount: 100_000_000, category: 'cash' }],
       targetMonthlyRetirementIncome: 10000,
     })
     const r = calcRetirement(c)
@@ -419,8 +419,8 @@ describe('E2E: 完整客戶財務規劃流程', () => {
         { label: '生活', amount: 20000, category: 'quality' },
       ],
       assetItems: [
-        { label: '現金', amount: 2000000, category: 'cash' },
-        { label: '股票', amount: 500000, category: 'stock' },
+        { id: 'a1', label: '現金', amount: 2000000, category: 'cash' },
+        { id: 'a2', label: '股票', amount: 500000, category: 'stock' },
       ],
       liabilityItems: [{ label: '房貸', amount: 3000000, type: 'long_term' }],
       riskProfile: 'moderate',
