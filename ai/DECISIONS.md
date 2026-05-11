@@ -38,6 +38,8 @@
 | 介面語言 | 繁體中文 | 目標市場台灣，不做多語系 |
 | InputForm 結構 | 6 tabs（基本/收支/資產/投資/支出/退休） | 依資料類型分組，比原先 3 tabs 更清晰 |
 | 分享密碼 | hash 存 Supabase，不存明文 | 基本安全性，IFA 不需要登入系統 |
+| 資產變動追蹤（Ledger） | 與「期間記錄」綁定；LedgerEntry → LedgerLine 雙層結構；確認後套用至 assetItems；差額自動建 MajorExpense | 交易記錄與資產快照同步，確保可鉤稽；差額標記讓 IFA 補充說明 |
+| 快照 UI 改名 | 「快照」→「期間記錄」（UI 層）；型別名 `AssetPeriodSnapshot` 保留不動 | 語意更精確；型別名不動避免大量 import 更新 |
 
 ---
 
@@ -45,7 +47,7 @@
 
 - `useClientStore.ts` 必須永遠向後相容，不可 breaking change
 - 新欄位必須有預設值，migration 自動補齊舊資料
-- Migration 版本號遞增（目前 v10）
+- Migration 版本號遞增（目前 v11）
 - 改 `ClientProfile` 型別 → 必須同步改 migration → 必須在 `InputForm` 有對應輸入 → 視情況在報表中顯示
 
 ---

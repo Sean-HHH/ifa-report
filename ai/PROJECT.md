@@ -34,7 +34,7 @@ src/
   types/
     client.ts                    ← 所有 TypeScript 型別（ClientProfile、VisibleModules、SharedSnapshot）
   hooks/
-    useClientStore.ts            ← 客戶 CRUD + localStorage + schema migration（目前 v10）
+    useClientStore.ts            ← 客戶 CRUD + localStorage + schema migration（目前 v11）
     useAppSettings.ts            ← 報告幣別、FX 匯率狀態
   utils/
     calculations.ts              ← 財務計算（純函數，含 calcCashFlow / calcAssetGrowth / calcRetirement）
@@ -69,9 +69,10 @@ src/
       CashFlowReport.tsx         ← 收支分析報表
       calc.ts                    ← 現金流計算
     assets/
-      AssetReport.tsx            ← 資產配置報表（圓餅圖 × 3 + 快照比對）
+      AssetReport.tsx            ← 資產配置報表（圓餅圖 × 3 + 期間記錄比對 + Layer 2 交易明細）
       AssetGrowthReport.tsx      ← 資產成長路徑報表（三情境折線圖）
-      SnapshotPanel.tsx          ← 快照管理面板（浮動 panel）
+      SnapshotPanel.tsx          ← 期間記錄管理面板（浮動 panel；整合 LedgerPanel；onCommit 處理 persistence）
+      LedgerPanel.tsx            ← 交易記錄輸入 UI（LedgerEntry/LedgerLine 新增刪除、鉤稽摘要、確認並更新資產）
       calc.ts                    ← 資產計算
     retirement/
       RetirementReport.tsx       ← 退休規劃報表
@@ -116,7 +117,8 @@ npm run preview  # 預覽 production build
 - `ifa_active_client` → 目前選中的 client UUID
 
 **Schema 版本歷史（useClientStore.ts）：**
-v1 → v2 → v3 → v4 → v5 → v6 → v7 → ... → v10（目前）
+v1 → v2 → v3 → v4 → v5 → v6 → v7 → ... → v10 → v11（目前）
+- v11：`InvestmentItem` 補 `id`（UUID）；`AssetPeriodSnapshot` 補 `ledgerEntries: []`
 新欄位加入時必須在 migration 中補齊預設值。
 
 **Supabase（分享）：**
