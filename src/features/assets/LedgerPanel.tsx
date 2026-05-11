@@ -117,6 +117,45 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
       return next
     })
 
+  const applyLedger = () => {
+    const allLines = entries.flatMap(e => e.lines)
+    const missing: string[] = []
+
+    const updatedAssetItems = assetItems.map(item => ({ ...item }))
+    for (const line of allLines) {
+      const idx = updatedAssetItems.findIndex(a => a.id === line.assetItemId)
+      if (idx === -1) {
+        if (line.assetItemId) missing.push(line.assetItemId)
+        continue
+      }
+      updatedAssetItems[idx] = {
+        ...updatedAssetItems[idx],
+        amount: updatedAssetItems[idx].amount + line.amountDelta,
+        ...(line.qtyDelta != null && updatedAssetItems[idx].units != null
+          ? { units: (updatedAssetItems[idx].units ?? 0) + line.qtyDelta }
+          : {}),
+      }
+    }
+
+    setMissingIds(missing)
+
+    const actualClosing = updatedAssetItems.reduce((s, a) => s + a.amount, 0)
+    const gap = actualClosing - (snapshot.openingAssets + totalExplained)
+
+    const currentYear = new Date().getFullYear()
+    const updatedMajorExpenses: MajorExpense[] = Math.abs(gap) > 1
+      ? [...majorExpenses, { label: `待說明差額 ${todayStr()}`, amount: Math.abs(gap), year: currentYear }]
+      : [...majorExpenses]
+
+    const updatedSnapshot: AssetPeriodSnapshot = {
+      ...snapshot,
+      closingAssets: actualClosing,
+      openingAssetItems: snapshot.assetItems,
+    }
+
+    onCommit(updatedAssetItems, updatedMajorExpenses, updatedSnapshot)
+  }
+
   return (
     <div style={{ marginTop: 10 }}>
       {/* Section label */}
@@ -237,6 +276,21 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
             )
           })}
         </div>
+      )}
+
+      {/* Missing asset warning */}
+      {missingIds.length > 0 && (
+        <div style={{ fontSize: 11, color: '#d97706', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 4, padding: '4px 8px', marginBottom: 6 }}>
+          {missingIds.length} 筆明細找不到對應資產（已刪除），已略過。
+        </div>
+      )}
+
+      {/* Apply button */}
+      {entries.length > 0 && !showNewForm && (
+        <button onClick={applyLedger}
+          style={{ fontSize: 12, fontWeight: 600, width: '100%', padding: '6px 0', marginBottom: 6, background: '#0f172a', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+          確認並更新資產
+        </button>
       )}
 
       {/* New entry form */}

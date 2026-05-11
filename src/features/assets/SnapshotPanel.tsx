@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import type { ClientProfile, AssetPeriodSnapshot } from '../../types/client'
+import type { ClientProfile, AssetPeriodSnapshot, InvestmentItem, MajorExpense } from '../../types/client'
 import { totalAssets } from '../../utils/calculations'
 import { LedgerPanel } from './LedgerPanel'
 
@@ -62,6 +62,19 @@ export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
   const deleteSnapshot = (id: string) => {
     onUpdate({ ...client, assetSnapshots: snapshots.filter(s => s.id !== id) })
     setConfirmDeleteId(null)
+  }
+
+  const handleCommit = (
+    updatedAssetItems: InvestmentItem[],
+    updatedMajorExpenses: MajorExpense[],
+    updatedSnapshot: AssetPeriodSnapshot,
+  ) => {
+    onUpdate({
+      ...client,
+      assetItems: updatedAssetItems,
+      majorExpenses: updatedMajorExpenses,
+      assetSnapshots: snapshots.map(s => s.id === updatedSnapshot.id ? updatedSnapshot : s),
+    })
   }
 
   return (
@@ -168,7 +181,9 @@ export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
                     <LedgerPanel
                       snapshot={s}
                       assetItems={client.assetItems}
+                      majorExpenses={client.majorExpenses}
                       onUpdate={updated => patchSnapshot(s.id, updated)}
+                      onCommit={handleCommit}
                     />
                   </div>
                 )}
