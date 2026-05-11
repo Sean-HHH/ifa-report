@@ -144,7 +144,7 @@ export default function App() {
                   cursor: 'pointer',
                 }}
               >
-                快照
+                期間記錄
               </button>
             )}
 

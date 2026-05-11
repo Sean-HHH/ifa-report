@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { ClientProfile, AssetPeriodSnapshot } from '../../types/client'
 import { totalAssets } from '../../utils/calculations'
+import { LedgerPanel } from './LedgerPanel'
 
 interface Props {
   client: ClientProfile
@@ -52,6 +53,7 @@ export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
       fxImpact: 0,
       fees: 0,
       assetItems: [...client.assetItems],
+      ledgerEntries: [],
     }
     onUpdate({ ...client, assetSnapshots: [snap, ...snapshots] })
     setExpandedId(snap.id)
@@ -69,7 +71,7 @@ export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
       border: '1px solid var(--color-border)',
       borderRadius: 'var(--radius-lg)',
       boxShadow: 'var(--shadow-md)',
-      width: 320,
+      width: 460,
       maxHeight: 'calc(100vh - 80px)',
       display: 'flex',
       flexDirection: 'column',
@@ -77,8 +79,8 @@ export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
     }}>
       {/* Header */}
       <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--color-text-secondary)' }}>快照管理</span>
-        <button onClick={onClose} aria-label="關閉快照管理" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: 4, borderRadius: 'var(--radius-sm)' }}>
+        <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--color-text-secondary)' }}>期間記錄管理</span>
+        <button onClick={onClose} aria-label="關閉期間記錄管理" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', padding: 4, borderRadius: 'var(--radius-sm)' }}>
           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
@@ -90,7 +92,7 @@ export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
           background: 'var(--color-primary)', color: '#fff',
           border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
         }}>
-          ＋ 建立快照（現在 {fmtWan(totalAssets(client))} 元）
+          ＋ 建立期間記錄（現在 {fmtWan(totalAssets(client))} 元）
         </button>
       </div>
 
@@ -98,7 +100,7 @@ export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
       <div style={{ overflowY: 'auto', flex: 1 }}>
         {snapshots.length === 0 ? (
           <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 13 }}>
-            尚無快照，點上方建立第一個
+            尚無期間記錄，點上方建立第一個
           </div>
         ) : (
           snapshots.map(s => {
@@ -125,7 +127,7 @@ export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
                     onClick={() => setExpandedId(isExpanded ? null : s.id)}
                     style={{ fontSize: 11, color: 'var(--color-text-muted)', background: 'none', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '2px 8px', cursor: 'pointer' }}
                   >
-                    {isExpanded ? '收合' : '改名'}
+                    {isExpanded ? '收合' : '詳情'}
                   </button>
                   {!isConfirming ? (
                     <button
@@ -148,7 +150,7 @@ export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
                 {isConfirming && (
                   <div style={{ padding: '8px 16px 12px', background: '#fff5f5' }}>
                     <div style={{ fontSize: 12, color: '#ef4444', marginBottom: 8 }}>
-                      確定刪除「{s.periodLabel}」快照？此操作無法復原。
+                      確定刪除「{s.periodLabel}」期間記錄？此操作無法復原。
                     </div>
                     <button
                       onClick={() => deleteSnapshot(s.id)}
@@ -159,10 +161,15 @@ export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
                   </div>
                 )}
 
-                {/* 標籤可編輯 */}
+                {/* 詳情 */}
                 {isExpanded && (
                   <div style={{ padding: '8px 16px 12px', borderTop: '1px solid var(--color-border)', background: '#f8fafc' }}>
                     <SnapField label="標籤" value={s.periodLabel} onChange={v => patchSnapshot(s.id, { periodLabel: v })} isText />
+                    <LedgerPanel
+                      snapshot={s}
+                      assetItems={client.assetItems}
+                      onUpdate={updated => patchSnapshot(s.id, updated)}
+                    />
                   </div>
                 )}
               </div>
