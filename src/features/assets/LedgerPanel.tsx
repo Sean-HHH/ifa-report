@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { AssetPeriodSnapshot, InvestmentItem, LedgerEntry, LedgerLine, MajorExpense } from '../../types/client'
+import type { AssetPeriodSnapshot, InvestmentItem, InvestmentCategory, LedgerEntry, LedgerLine, MajorExpense } from '../../types/client'
+import { INVESTMENT_CATEGORY_LABELS } from '../../types/client'
 
 function fmtWan(n: number) {
   if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)} 億`
@@ -28,6 +29,13 @@ type DraftLine = {
   note: string
 }
 
+interface NewAssetFormState {
+  entryId: string | null  // null = draft form
+  lineId: string
+  label: string
+  category: InvestmentCategory
+}
+
 function emptyDraftLine(): DraftLine {
   return { id: crypto.randomUUID(), assetItemId: '', amountDelta: '', qtyDelta: '', price: '', note: '' }
 }
@@ -46,6 +54,10 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
   const [draftDate, setDraftDate] = useState(todayStr())
   const [draftLines, setDraftLines] = useState<DraftLine[]>([emptyDraftLine()])
   const [missingIds, setMissingIds] = useState<string[]>([])
+  const [pendingNewAssets, setPendingNewAssets] = useState<InvestmentItem[]>([])
+  const [newAssetForm, setNewAssetForm] = useState<NewAssetFormState | null>(null)
+
+  const allAssets = [...assetItems, ...pendingNewAssets]
 
   const entries = snapshot.ledgerEntries ?? []
   const totalExplained = entries.flatMap(e => e.lines).reduce((s, l) => s + l.amountDelta, 0)
@@ -69,6 +81,22 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
         : e
     ))
 
+  // Auto-updates amountDelta when both qtyDelta and price are set
+  const patchLineAuto = (entryId: string, lineId: string, p: Partial<LedgerLine>) => {
+    const entry = entries.find(e => e.id === entryId)
+    const line = entry?.lines.find(l => l.id === lineId)
+    const patch = { ...p }
+    if (line) {
+      const merged = { ...line, ...patch }
+      const qty = merged.qtyDelta
+      const pr = merged.price
+      if (qty != null && qty !== 0 && pr != null && pr !== 0) {
+        patch.amountDelta = qty * pr
+      }
+    }
+    patchLine(entryId, lineId, patch)
+  }
+
   const addLineToEntry = (entryId: string) =>
     patchEntries(entries.map(e =>
       e.id === entryId
@@ -83,18 +111,40 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
         : e
     ))
 
+  const confirmNewAsset = () => {
+    if (!newAssetForm || !newAssetForm.label.trim()) return
+    const newItem: InvestmentItem = {
+      id: crypto.randomUUID(),
+      label: newAssetForm.label.trim(),
+      category: newAssetForm.category,
+      amount: 0,
+    }
+    setPendingNewAssets(prev => [...prev, newItem])
+    if (newAssetForm.entryId === null) {
+      setDraftLines(prev => prev.map(l => l.id === newAssetForm.lineId ? { ...l, assetItemId: newItem.id } : l))
+    } else {
+      patchLine(newAssetForm.entryId, newAssetForm.lineId, { assetItemId: newItem.id })
+    }
+    setNewAssetForm(null)
+  }
+
   const commitNewEntry = () => {
     if (!draftDesc.trim()) return
     const lines: LedgerLine[] = draftLines
       .filter(l => l.assetItemId !== '' && l.amountDelta !== '')
-      .map(l => ({
-        id: l.id,
-        assetItemId: l.assetItemId,
-        amountDelta: Number(l.amountDelta),
-        ...(l.qtyDelta !== '' ? { qtyDelta: Number(l.qtyDelta) } : {}),
-        ...(l.price !== '' ? { price: Number(l.price) } : {}),
-        ...(l.note !== '' ? { note: l.note } : {}),
-      }))
+      .map(l => {
+        const qty = l.qtyDelta !== '' ? Number(l.qtyDelta) : undefined
+        const price = l.price !== '' ? Number(l.price) : undefined
+        const autoAmt = qty != null && qty !== 0 && price != null && price !== 0 ? qty * price : null
+        return {
+          id: l.id,
+          assetItemId: l.assetItemId,
+          amountDelta: autoAmt ?? Number(l.amountDelta),
+          ...(qty != null ? { qtyDelta: qty } : {}),
+          ...(price != null ? { price } : {}),
+          ...(l.note !== '' ? { note: l.note } : {}),
+        }
+      })
     const entry: LedgerEntry = {
       id: crypto.randomUUID(),
       description: draftDesc.trim(),
@@ -106,6 +156,7 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
     setDraftDate(todayStr())
     setDraftLines([emptyDraftLine()])
     setShowNewForm(false)
+    setNewAssetForm(null)
     setExpandedIds(prev => new Set([...prev, entry.id]))
   }
 
@@ -121,7 +172,10 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
     const allLines = entries.flatMap(e => e.lines)
     const missing: string[] = []
 
-    const updatedAssetItems = assetItems.map(item => ({ ...item }))
+    const updatedAssetItems = [
+      ...assetItems.map(item => ({ ...item })),
+      ...pendingNewAssets.map(a => ({ ...a })),
+    ]
     for (const line of allLines) {
       const idx = updatedAssetItems.findIndex(a => a.id === line.assetItemId)
       if (idx === -1) {
@@ -232,39 +286,66 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
                         placeholder="交易描述" style={{ ...inputSm, flex: 1 }} />
                     </div>
 
-                    {entry.lines.map(line => (
-                      <div key={line.id} style={{ marginBottom: 6 }}>
-                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                          <select value={line.assetItemId}
-                            onChange={e => patchLine(entry.id, line.id, { assetItemId: e.target.value })}
-                            style={{ ...inputSm, flex: 1 }}>
-                            <option value="">選擇資產</option>
-                            {assetItems.map(a => (
-                              <option key={a.id} value={a.id}>{a.label}</option>
-                            ))}
-                          </select>
-                          <input type="number" value={line.amountDelta}
-                            onChange={e => patchLine(entry.id, line.id, { amountDelta: Number(e.target.value) })}
-                            placeholder="金額 ±" style={{ ...inputSm, width: 72 }} />
-                          <button onClick={() => removeLineFromEntry(entry.id, line.id)}
-                            aria-label="刪除此行"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fca5a5', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                            <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                          </button>
+                    {entry.lines.map(line => {
+                      const isAutoAmt = line.qtyDelta != null && line.qtyDelta !== 0 && line.price != null && line.price !== 0
+                      const showMiniForm = newAssetForm?.entryId === entry.id && newAssetForm?.lineId === line.id
+                      return (
+                        <div key={line.id} style={{ marginBottom: 6 }}>
+                          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <select
+                              value={showMiniForm ? '__new__' : line.assetItemId}
+                              onChange={e => {
+                                if (e.target.value === '__new__') {
+                                  setNewAssetForm({ entryId: entry.id, lineId: line.id, label: '', category: 'stock' })
+                                } else {
+                                  patchLine(entry.id, line.id, { assetItemId: e.target.value })
+                                  setNewAssetForm(null)
+                                }
+                              }}
+                              style={{ ...inputSm, flex: 1 }}>
+                              <option value="">選擇資產</option>
+                              {allAssets.map(a => (
+                                <option key={a.id} value={a.id}>{a.label}</option>
+                              ))}
+                              <option value="__new__">＋ 建立新資產</option>
+                            </select>
+                            {isAutoAmt ? (
+                              <span style={{ fontSize: 11, padding: '3px 6px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 4, color: '#0369a1', width: 72, textAlign: 'right', flexShrink: 0, display: 'inline-block' }}>
+                                {fmtWan(line.qtyDelta! * line.price!)}
+                              </span>
+                            ) : (
+                              <input type="number" value={line.amountDelta}
+                                onChange={e => patchLine(entry.id, line.id, { amountDelta: Number(e.target.value) })}
+                                placeholder="金額 ±" style={{ ...inputSm, width: 72 }} />
+                            )}
+                            <button onClick={() => removeLineFromEntry(entry.id, line.id)}
+                              aria-label="刪除此行"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fca5a5', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                              <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                          </div>
+                          <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+                            <input type="number" value={line.qtyDelta ?? ''}
+                              onChange={e => patchLineAuto(entry.id, line.id, { qtyDelta: e.target.value !== '' ? Number(e.target.value) : undefined })}
+                              placeholder="數量 ±" style={{ ...inputSm, width: 64 }} />
+                            <input type="number" value={line.price ?? ''}
+                              onChange={e => patchLineAuto(entry.id, line.id, { price: e.target.value !== '' ? Number(e.target.value) : undefined })}
+                              placeholder="單價" style={{ ...inputSm, width: 64 }} />
+                            <input value={line.note ?? ''}
+                              onChange={e => patchLine(entry.id, line.id, { note: e.target.value || undefined })}
+                              placeholder="備注" style={{ ...inputSm, flex: 1 }} />
+                          </div>
+                          {showMiniForm && (
+                            <NewAssetMiniForm
+                              form={newAssetForm!}
+                              onChange={setNewAssetForm}
+                              onConfirm={confirmNewAsset}
+                              onCancel={() => setNewAssetForm(null)}
+                            />
+                          )}
                         </div>
-                        <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
-                          <input type="number" value={line.qtyDelta ?? ''}
-                            onChange={e => patchLine(entry.id, line.id, { qtyDelta: e.target.value !== '' ? Number(e.target.value) : undefined })}
-                            placeholder="數量 ±" style={{ ...inputSm, width: 64 }} />
-                          <input type="number" value={line.price ?? ''}
-                            onChange={e => patchLine(entry.id, line.id, { price: e.target.value !== '' ? Number(e.target.value) : undefined })}
-                            placeholder="單價" style={{ ...inputSm, width: 64 }} />
-                          <input value={line.note ?? ''}
-                            onChange={e => patchLine(entry.id, line.id, { note: e.target.value || undefined })}
-                            placeholder="備注" style={{ ...inputSm, flex: 1 }} />
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
 
                     <button onClick={() => addLineToEntry(entry.id)}
                       style={{ fontSize: 11, color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
@@ -307,41 +388,88 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
               autoFocus />
           </div>
 
-          {draftLines.map((line, idx) => (
-            <div key={line.id} style={{ marginBottom: 6 }}>
-              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                <select value={line.assetItemId}
-                  onChange={e => setDraftLines(prev => prev.map((l, i) => i === idx ? { ...l, assetItemId: e.target.value } : l))}
-                  style={{ ...inputSm, flex: 1 }}>
-                  <option value="">選擇資產</option>
-                  {assetItems.map(a => (
-                    <option key={a.id} value={a.id}>{a.label}</option>
-                  ))}
-                </select>
-                <input type="number" value={line.amountDelta}
-                  onChange={e => setDraftLines(prev => prev.map((l, i) => i === idx ? { ...l, amountDelta: e.target.value } : l))}
-                  placeholder="金額 ±" style={{ ...inputSm, width: 72 }} />
-                {draftLines.length > 1 && (
-                  <button onClick={() => setDraftLines(prev => prev.filter((_, i) => i !== idx))}
-                    aria-label="刪除此行"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fca5a5', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                    <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
+          {draftLines.map((line, idx) => {
+            const qty = line.qtyDelta !== '' ? Number(line.qtyDelta) : null
+            const price = line.price !== '' ? Number(line.price) : null
+            const isAutoAmt = qty != null && qty !== 0 && price != null && price !== 0
+            const showMiniForm = newAssetForm?.entryId === null && newAssetForm?.lineId === line.id
+            return (
+              <div key={line.id} style={{ marginBottom: 6 }}>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <select
+                    value={showMiniForm ? '__new__' : line.assetItemId}
+                    onChange={e => {
+                      if (e.target.value === '__new__') {
+                        setNewAssetForm({ entryId: null, lineId: line.id, label: '', category: 'stock' })
+                      } else {
+                        setDraftLines(prev => prev.map((l, i) => i === idx ? { ...l, assetItemId: e.target.value } : l))
+                        setNewAssetForm(null)
+                      }
+                    }}
+                    style={{ ...inputSm, flex: 1 }}>
+                    <option value="">選擇資產</option>
+                    {allAssets.map(a => (
+                      <option key={a.id} value={a.id}>{a.label}</option>
+                    ))}
+                    <option value="__new__">＋ 建立新資產</option>
+                  </select>
+                  {isAutoAmt ? (
+                    <span style={{ fontSize: 11, padding: '3px 6px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 4, color: '#0369a1', width: 72, textAlign: 'right', flexShrink: 0, display: 'inline-block' }}>
+                      {fmtWan(qty! * price!)}
+                    </span>
+                  ) : (
+                    <input type="number" value={line.amountDelta}
+                      onChange={e => setDraftLines(prev => prev.map((l, i) => i === idx ? { ...l, amountDelta: e.target.value } : l))}
+                      placeholder="金額 ±" style={{ ...inputSm, width: 72 }} />
+                  )}
+                  {draftLines.length > 1 && (
+                    <button onClick={() => setDraftLines(prev => prev.filter((_, i) => i !== idx))}
+                      aria-label="刪除此行"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fca5a5', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                      <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
+                  <input type="number" value={line.qtyDelta}
+                    onChange={e => {
+                      const newQty = e.target.value
+                      setDraftLines(prev => prev.map((l, i) => {
+                        if (i !== idx) return l
+                        const q = newQty !== '' ? Number(newQty) : null
+                        const p = l.price !== '' ? Number(l.price) : null
+                        const autoAmt = q != null && q !== 0 && p != null && p !== 0 ? String(q * p) : l.amountDelta
+                        return { ...l, qtyDelta: newQty, amountDelta: autoAmt }
+                      }))
+                    }}
+                    placeholder="數量 ±" style={{ ...inputSm, width: 64 }} />
+                  <input type="number" value={line.price}
+                    onChange={e => {
+                      const newPrice = e.target.value
+                      setDraftLines(prev => prev.map((l, i) => {
+                        if (i !== idx) return l
+                        const q = l.qtyDelta !== '' ? Number(l.qtyDelta) : null
+                        const p = newPrice !== '' ? Number(newPrice) : null
+                        const autoAmt = q != null && q !== 0 && p != null && p !== 0 ? String(q * p) : l.amountDelta
+                        return { ...l, price: newPrice, amountDelta: autoAmt }
+                      }))
+                    }}
+                    placeholder="單價" style={{ ...inputSm, width: 64 }} />
+                  <input value={line.note}
+                    onChange={e => setDraftLines(prev => prev.map((l, i) => i === idx ? { ...l, note: e.target.value } : l))}
+                    placeholder="備注" style={{ ...inputSm, flex: 1 }} />
+                </div>
+                {showMiniForm && (
+                  <NewAssetMiniForm
+                    form={newAssetForm!}
+                    onChange={setNewAssetForm}
+                    onConfirm={confirmNewAsset}
+                    onCancel={() => setNewAssetForm(null)}
+                  />
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
-                <input type="number" value={line.qtyDelta}
-                  onChange={e => setDraftLines(prev => prev.map((l, i) => i === idx ? { ...l, qtyDelta: e.target.value } : l))}
-                  placeholder="數量 ±" style={{ ...inputSm, width: 64 }} />
-                <input type="number" value={line.price}
-                  onChange={e => setDraftLines(prev => prev.map((l, i) => i === idx ? { ...l, price: e.target.value } : l))}
-                  placeholder="單價" style={{ ...inputSm, width: 64 }} />
-                <input value={line.note}
-                  onChange={e => setDraftLines(prev => prev.map((l, i) => i === idx ? { ...l, note: e.target.value } : l))}
-                  placeholder="備注" style={{ ...inputSm, flex: 1 }} />
-              </div>
-            </div>
-          ))}
+            )
+          })}
 
           <button
             onClick={() => setDraftLines(prev => [...prev, emptyDraftLine()])}
@@ -354,7 +482,7 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
               style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', background: draftDesc.trim() ? 'var(--color-primary)' : '#cbd5e1', color: '#fff', border: 'none', borderRadius: 4, cursor: draftDesc.trim() ? 'pointer' : 'not-allowed' }}>
               新增交易
             </button>
-            <button onClick={() => { setShowNewForm(false); setDraftDesc(''); setDraftDate(todayStr()); setDraftLines([emptyDraftLine()]) }}
+            <button onClick={() => { setShowNewForm(false); setDraftDesc(''); setDraftDate(todayStr()); setDraftLines([emptyDraftLine()]); setNewAssetForm(null) }}
               style={{ fontSize: 12, padding: '5px 10px', background: 'none', border: '1px solid var(--color-border)', borderRadius: 4, cursor: 'pointer', color: 'var(--color-text-muted)' }}>
               取消
             </button>
@@ -369,6 +497,58 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
           ＋ 新增交易
         </button>
       )}
+    </div>
+  )
+}
+
+function NewAssetMiniForm({
+  form,
+  onChange,
+  onConfirm,
+  onCancel,
+}: {
+  form: NewAssetFormState
+  onChange: (f: NewAssetFormState) => void
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div style={{ border: '1px solid #bfdbfe', borderRadius: 4, padding: '6px 8px', marginTop: 4, background: '#eff6ff' }}>
+      <div style={{ fontSize: 11, color: 'var(--color-primary)', fontWeight: 600, marginBottom: 4 }}>建立新資產</div>
+      <div style={{ display: 'flex', gap: 4 }}>
+        <input
+          value={form.label}
+          onChange={e => onChange({ ...form, label: e.target.value })}
+          placeholder="資產名稱"
+          style={{ ...inputSm, flex: 1 }}
+          autoFocus
+          onKeyDown={e => { if (e.key === 'Enter' && form.label.trim()) onConfirm() }}
+        />
+        <select
+          value={form.category}
+          onChange={e => onChange({ ...form, category: e.target.value as InvestmentCategory })}
+          style={inputSm}
+        >
+          {Object.entries(INVESTMENT_CATEGORY_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+      </div>
+      <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+        <button
+          onClick={onConfirm}
+          disabled={!form.label.trim()}
+          style={{ fontSize: 11, padding: '3px 10px', background: form.label.trim() ? 'var(--color-primary)' : '#cbd5e1', color: '#fff', border: 'none', borderRadius: 4, cursor: form.label.trim() ? 'pointer' : 'not-allowed' }}
+        >
+          確認
+        </button>
+        <button
+          onClick={onCancel}
+          style={{ fontSize: 11, padding: '3px 8px', background: 'none', border: '1px solid var(--color-border)', borderRadius: 4, cursor: 'pointer', color: 'var(--color-text-muted)' }}
+        >
+          取消
+        </button>
+      </div>
     </div>
   )
 }
