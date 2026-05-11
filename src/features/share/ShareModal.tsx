@@ -8,10 +8,11 @@ interface Props {
 }
 
 const MODULE_LABELS: { key: keyof VisibleModules; label: string }[] = [
-  { key: 'basicInfo',    label: '基本資料' },
-  { key: 'assetGrowth',  label: '資產成長圖' },
-  { key: 'retirement',   label: '退休規劃' },
-  { key: 'cashflow',     label: '現金流分析' },
+  { key: 'basicInfo',   label: '基本資料' },
+  { key: 'cashflow',    label: '收支分析' },
+  { key: 'assets',      label: '資產組合' },
+  { key: 'assetGrowth', label: '資產成長' },
+  { key: 'retirement',  label: '退休規劃' },
 ]
 
 async function sha256(text: string): Promise<string> {
@@ -22,7 +23,7 @@ async function sha256(text: string): Promise<string> {
 export function ShareModal({ client, onClose }: Props) {
   const [password, setPassword] = useState('')
   const [modules, setModules] = useState<VisibleModules>({
-    basicInfo: true, assetGrowth: true, retirement: true, cashflow: true,
+    basicInfo: true, cashflow: true, assets: true, assetGrowth: true, retirement: true,
   })
   const [loading, setLoading] = useState(false)
   const [link, setLink] = useState<string | null>(null)

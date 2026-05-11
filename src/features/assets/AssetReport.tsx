@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Pie } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
-import type { ClientProfile, InvestmentCategory } from '../../types/client'
+import type { AssetPeriodSnapshot, ClientProfile, InvestmentCategory, InvestmentItem } from '../../types/client'
 import {
   INVESTMENT_CATEGORY_LABELS, ASSET_CURRENCY_LABELS, ASSET_PURPOSE_LABELS,
 } from '../../types/client'
@@ -215,6 +215,112 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
   )
 }
 
+function fmtWan(n: number) {
+  if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)} 億`
+  if (Math.abs(n) >= 1e4) return `${(n / 1e4).toFixed(0)} 萬`
+  return n.toLocaleString('zh-TW')
+}
+
+function LedgerHistory({ activeSnap, bTotal, currentItems }: {
+  activeSnap: AssetPeriodSnapshot | undefined
+  bTotal: number
+  currentItems: InvestmentItem[]
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  const ledger = activeSnap?.ledgerEntries ?? []
+  const snapItems = activeSnap?.assetItems ?? []
+  const itemMap = new Map<string, string>([
+    ...currentItems.map(i => [i.id, i.label] as [string, string]),
+    ...snapItems.map(i => [i.id, i.label] as [string, string]),
+  ])
+  const totalDeltaLedger = ledger.reduce(
+    (s, e) => s + e.lines.reduce((ls, l) => ls + l.amountDelta, 0), 0
+  )
+  const opening = activeSnap?.openingAssets ?? 0
+  const closing = activeSnap?.closingAssets ?? bTotal
+  const gap = closing - opening - totalDeltaLedger
+
+  const toggle = (id: string) =>
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) { next.delete(id) } else { next.add(id) }
+      return next
+    })
+
+  return (
+    <div className="pt-2 border-t border-slate-100">
+      <div className="text-xs font-semibold text-slate-500 tracking-wide mb-3">本期交易明細</div>
+
+      {/* Reconciliation summary */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs bg-slate-50 rounded-lg px-3 py-2 mb-3">
+        <span className="text-slate-500">期初 <span className="font-medium text-slate-700">{fmtWan(opening)}</span></span>
+        <span className="text-slate-300">+</span>
+        <span className="text-slate-500">
+          交易合計
+          <span className={`font-medium ml-1 ${totalDeltaLedger >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+            {totalDeltaLedger >= 0 ? '+' : ''}{fmtWan(totalDeltaLedger)}
+          </span>
+        </span>
+        <span className="text-slate-300">→</span>
+        <span className="text-slate-500">期末 <span className="font-medium text-slate-700">{fmtWan(closing)}</span></span>
+        {Math.abs(gap) > 1 && (
+          <span className="text-orange-500 font-medium">差額 {gap >= 0 ? '+' : ''}{fmtWan(gap)}</span>
+        )}
+      </div>
+
+      {/* Entry list */}
+      {ledger.length === 0 ? (
+        <div className="text-xs text-slate-400">本期尚無交易記錄</div>
+      ) : (
+        <div className="space-y-1">
+          {ledger.map(entry => {
+            const entrySum = entry.lines.reduce((s, l) => s + l.amountDelta, 0)
+            const isExpanded = expanded.has(entry.id)
+            return (
+              <div key={entry.id} className="rounded-lg border border-slate-100 overflow-hidden">
+                <button
+                  onClick={() => toggle(entry.id)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-slate-50 transition-colors"
+                >
+                  <span className="text-slate-400 shrink-0">{entry.date}</span>
+                  <span className="text-slate-700 flex-1">{entry.description}</span>
+                  <span className={`font-medium shrink-0 ${entrySum >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {entrySum >= 0 ? '+' : ''}{fmtWan(entrySum)}
+                  </span>
+                  <span className="text-slate-300 ml-1">{isExpanded ? '▲' : '▼'}</span>
+                </button>
+                {isExpanded && (
+                  <div className="border-t border-slate-100 bg-slate-50 px-3 py-2 space-y-1.5">
+                    {entry.lines.map((line, li) => {
+                      const assetLabel = itemMap.get(line.assetItemId) ?? '已刪除資產'
+                      return (
+                        <div key={li} className="flex items-start gap-2 text-xs">
+                          <span className="text-slate-500 flex-1">{assetLabel}</span>
+                          {line.qtyDelta != null && (
+                            <span className="text-slate-400">{line.qtyDelta >= 0 ? '+' : ''}{line.qtyDelta} 股</span>
+                          )}
+                          {line.price != null && (
+                            <span className="text-slate-400">@ {fmtWan(line.price)}</span>
+                          )}
+                          <span className={`font-medium shrink-0 ${line.amountDelta >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                            {line.amountDelta >= 0 ? '+' : ''}{fmtWan(line.amountDelta)}
+                          </span>
+                          {line.note && <span className="text-slate-400">（{line.note}）</span>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Layer 2: 資產變化 ─────────────────────────────────────────
 
 function Layer2({ client }: { client: ClientProfile }) {
@@ -263,12 +369,6 @@ function Layer2({ client }: { client: ClientProfile }) {
   const totalDelta   = bTotal - aTotal
   const totalDeltaPct = aTotal > 0 ? (totalDelta / aTotal) * 100 : 0
   const deltaColor   = totalDelta >= 0 ? 'text-emerald-600' : 'text-red-500'
-
-  function fmtWan(n: number) {
-    if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)} 億`
-    if (Math.abs(n) >= 1e4) return `${(n / 1e4).toFixed(0)} 萬`
-    return n.toLocaleString('zh-TW')
-  }
 
   // Category rows: union of A+B categories, sorted by |delta pct| desc
   const allCats = Array.from(new Set([
@@ -345,6 +445,12 @@ function Layer2({ client }: { client: ClientProfile }) {
       ) : (
         <div className="text-xs text-slate-500">無歷史配置資料（舊快照不含明細）</div>
       )}
+
+      <LedgerHistory
+        activeSnap={snapshots.length === 1 ? snapshots[0] : toSnap}
+        bTotal={bTotal}
+        currentItems={client.assetItems}
+      />
     </div>
   )
 }
