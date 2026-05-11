@@ -63,7 +63,7 @@ export function ClientViewPage() {
     )
   }
 
-  const hasCharts = !!(visibleModules?.assetGrowth || visibleModules?.retirement || visibleModules?.cashflow)
+  const hasCharts = !!(visibleModules?.cashflow || visibleModules?.assets || visibleModules?.assetGrowth || visibleModules?.retirement)
 
   // verified
   return (

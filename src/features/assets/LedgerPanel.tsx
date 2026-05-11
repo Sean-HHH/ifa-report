@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { AssetPeriodSnapshot, InvestmentItem, LedgerEntry, LedgerLine } from '../../types/client'
+import type { AssetPeriodSnapshot, InvestmentItem, LedgerEntry, LedgerLine, MajorExpense } from '../../types/client'
 
 function fmtWan(n: number) {
   if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)} 億`
@@ -14,7 +14,9 @@ function todayStr() {
 interface Props {
   snapshot: AssetPeriodSnapshot
   assetItems: InvestmentItem[]
+  majorExpenses: MajorExpense[]
   onUpdate: (s: AssetPeriodSnapshot) => void
+  onCommit: (updatedAssetItems: InvestmentItem[], updatedMajorExpenses: MajorExpense[], updatedSnapshot: AssetPeriodSnapshot) => void
 }
 
 type DraftLine = {
@@ -37,12 +39,13 @@ const inputSm: React.CSSProperties = {
   color: 'var(--color-text-secondary)',
 }
 
-export function LedgerPanel({ snapshot, assetItems, onUpdate }: Props) {
+export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onCommit }: Props) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [showNewForm, setShowNewForm] = useState(false)
   const [draftDesc, setDraftDesc] = useState('')
   const [draftDate, setDraftDate] = useState(todayStr())
   const [draftLines, setDraftLines] = useState<DraftLine[]>([emptyDraftLine()])
+  const [missingIds, setMissingIds] = useState<string[]>([])
 
   const entries = snapshot.ledgerEntries ?? []
   const totalExplained = entries.flatMap(e => e.lines).reduce((s, l) => s + l.amountDelta, 0)

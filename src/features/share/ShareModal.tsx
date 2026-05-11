@@ -53,8 +53,10 @@ export function ShareModal({ client, onClose }: Props) {
 
       const base = `${window.location.origin}${window.location.pathname}`
       setLink(`${base}#/c/${data.id}`)
-    } catch {
-      setError('分享失敗，請確認 Supabase 設定是否正確。')
+    } catch (err) {
+      console.error('[ShareModal] error:', err)
+      const msg = err instanceof Error ? err.message : JSON.stringify(err)
+      setError(`分享失敗：${msg}`)
     } finally {
       setLoading(false)
     }
