@@ -88,6 +88,7 @@ export interface LedgerEntry {
   description: string
   date: string
   lines: LedgerLine[]
+  snapshotId?: string  // 所屬快照 id；undefined 表示不綁定快照
 }
 
 export interface AssetPeriodSnapshot {
@@ -115,8 +116,9 @@ export interface InvestmentItem {
   purpose?: AssetPurpose
   note?: string
   ticker?: string
-  unitPrice?: number
+  unitPrice?: number  // 當前市價（手動輸入）
   units?: number
+  avgCost?: number    // 加權平均成本（由 ledger 自動維護）
 }
 
 export type LiabilityType = 'long_term' | 'current'
@@ -161,6 +163,7 @@ export interface ClientProfile {
   targetAllocation: Partial<Record<InvestmentCategory, number>>  // 各類別目標 %（0-100）
   toleranceBand: number   // 容許偏離 %，預設 5
   assetSnapshots: AssetPeriodSnapshot[]  // Layer 2 快照列表（最新在前）
+  ledgerEntries: LedgerEntry[]           // 全局交易記錄（不依附快照）
 
   // 人生目標
   birthYear: number
@@ -228,6 +231,7 @@ export function newClient(): ClientProfile {
     targetAllocation: {},
     toleranceBand: 5,
     assetSnapshots: [],
+    ledgerEntries: [],
     birthYear: new Date().getFullYear() - 35,
     retirementAge: 60,
     retirementLifespan: 30,
