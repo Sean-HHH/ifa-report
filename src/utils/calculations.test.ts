@@ -29,6 +29,7 @@ function makeClient(overrides: Partial<ClientProfile> = {}): ClientProfile {
     targetAllocation: {},
     toleranceBand: 5,
     assetSnapshots: [],
+    ledgerEntries: [],
     birthYear: new Date().getFullYear() - 35,
     retirementAge: 60,
     retirementLifespan: 30,

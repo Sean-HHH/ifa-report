@@ -184,6 +184,8 @@ export default function App() {
         {showSnapshotPanel && activeClient && (
           <SnapshotPanel
             client={activeClient}
+            rates={effectiveRates}
+            reportCurrency={reportCurrency}
             onUpdate={updateClient}
             onClose={() => setShowSnapshotPanel(false)}
           />

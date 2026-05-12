@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Pie } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
-import type { AssetPeriodSnapshot, ClientProfile, InvestmentCategory, InvestmentItem } from '../../types/client'
+import type { AssetPeriodSnapshot, ClientProfile, InvestmentCategory, InvestmentItem, LedgerEntry } from '../../types/client'
 import {
   INVESTMENT_CATEGORY_LABELS, ASSET_CURRENCY_LABELS, ASSET_PURPOSE_LABELS,
 } from '../../types/client'
@@ -139,37 +139,45 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
         <div>
           <SectionTitle>資產明細</SectionTitle>
           <div className="space-y-1">
-            {client.assetItems.map((item, i) => (
-              <div key={i} className="flex items-center justify-between py-2 px-3 bg-emerald-50 rounded-lg text-sm">
-                <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                  <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded shrink-0">
-                    {INVESTMENT_CATEGORY_LABELS[item.category]}
-                  </span>
-                  {item.currency && item.currency !== 'TWD' && (
-                    <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded shrink-0">
-                      {item.currency}
+            {(() => {
+              const TRADEABLE = new Set(['stock', 'fund', 'bond', 'crypto'])
+              return client.assetItems.map((item, i) => (
+                <div key={i} className="flex items-center justify-between py-2 px-3 bg-emerald-50 rounded-lg text-sm">
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                    <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded shrink-0">
+                      {INVESTMENT_CATEGORY_LABELS[item.category]}
                     </span>
-                  )}
-                  {item.institution && (
-                    <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded shrink-0">
-                      {item.institution}
+                    {item.currency && item.currency !== 'TWD' && (
+                      <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded shrink-0">
+                        {item.currency}
+                      </span>
+                    )}
+                    {item.institution && (
+                      <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded shrink-0">
+                        {item.institution}
+                      </span>
+                    )}
+                    <span className="text-slate-700 truncate">{item.label}</span>
+                    <NoteTag note={item.note} />
+                  </div>
+                  <div className="flex flex-col items-end ml-2 shrink-0">
+                    <span className="font-medium text-emerald-700">
+                      {dispItem(item.amount, item.currency ?? 'TWD')}
                     </span>
-                  )}
-                  <span className="text-slate-700 truncate">{item.label}</span>
-                  <NoteTag note={item.note} />
+                    {item.currency && item.currency !== 'TWD' && item.currency !== reportCurrency && (
+                      <span className="text-xs text-slate-500">
+                        {fmtAmount(item.amount, item.currency, true)} 原幣
+                      </span>
+                    )}
+                    {TRADEABLE.has(item.category) && item.avgCost != null && item.units != null && (
+                      <span className="text-xs text-slate-400">
+                        均成本 {fmtAmount(item.avgCost, item.currency ?? 'TWD', true)} × {item.units}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex flex-col items-end ml-2 shrink-0">
-                  <span className="font-medium text-emerald-700">
-                    {dispItem(item.amount, item.currency ?? 'TWD')}
-                  </span>
-                  {item.currency && item.currency !== 'TWD' && item.currency !== reportCurrency && (
-                    <span className="text-xs text-slate-500">
-                      {fmtAmount(item.amount, item.currency, true)} 原幣
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
+              ))
+            })()}
           </div>
         </div>
       )}
@@ -221,14 +229,17 @@ function fmtWan(n: number) {
   return n.toLocaleString('zh-TW')
 }
 
-function LedgerHistory({ activeSnap, bTotal, currentItems }: {
-  activeSnap: AssetPeriodSnapshot | undefined
+interface LedgerHistoryProps {
+  entries: LedgerEntry[]
   bTotal: number
   currentItems: InvestmentItem[]
-}) {
+  activeSnap?: AssetPeriodSnapshot
+}
+
+function LedgerHistory({ entries, bTotal, currentItems, activeSnap }: LedgerHistoryProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  const ledger = activeSnap?.ledgerEntries ?? []
+  const ledger = entries
   const snapItems = activeSnap?.assetItems ?? []
   const itemMap = new Map<string, string>([
     ...currentItems.map(i => [i.id, i.label] as [string, string]),
@@ -323,7 +334,7 @@ function LedgerHistory({ activeSnap, bTotal, currentItems }: {
 
 // ── Layer 2: 資產變化 ─────────────────────────────────────────
 
-function Layer2({ client }: { client: ClientProfile }) {
+function Layer2({ client, rates, reportCurrency }: { client: ClientProfile; rates: FxRates; reportCurrency: string }) {
   const snapshots = useMemo(() => client.assetSnapshots ?? [], [client.assetSnapshots])
   const [fromId, setFromId] = useState<string>(() => (client.assetSnapshots ?? [])[((client.assetSnapshots ?? []).length - 1)]?.id ?? '')
   const [toId, setToId] = useState<string>(() => (client.assetSnapshots ?? [])[0]?.id ?? '')
@@ -352,9 +363,9 @@ function Layer2({ client }: { client: ClientProfile }) {
 
   const bTotal = useMemo(() => {
     if (snapshots.length === 0) return 0
-    if (snapshots.length === 1) return client.assetItems.reduce((s, i) => s + i.amount, 0)
+    if (snapshots.length === 1) return totalAssetsConverted(client, rates, reportCurrency)
     return toSnap?.openingAssets ?? 0
-  }, [snapshots, toSnap, client.assetItems])
+  }, [snapshots, toSnap, client, rates, reportCurrency])
 
   const aBreakdown = useMemo(() => aItems ? calcCategoryBreakdown(aItems) : null, [aItems])
   const bBreakdown = useMemo(() => bItems ? calcCategoryBreakdown(bItems) : null, [bItems])
@@ -447,9 +458,17 @@ function Layer2({ client }: { client: ClientProfile }) {
       )}
 
       <LedgerHistory
-        activeSnap={snapshots.length === 1 ? snapshots[0] : toSnap}
+        entries={(() => {
+          const activeSnap = snapshots.length === 1 ? snapshots[0] : toSnap
+          if (activeSnap) {
+            return client.ledgerEntries.filter(e => e.snapshotId === activeSnap.id)
+          }
+          // fallback: show all entries (including unbound ones)
+          return client.ledgerEntries
+        })()}
         bTotal={bTotal}
         currentItems={client.assetItems}
+        activeSnap={snapshots.length === 1 ? snapshots[0] : toSnap}
       />
     </div>
   )
@@ -562,7 +581,7 @@ export function AssetReport({ client, rates, reportCurrency }: { client: ClientP
       </div>
 
       {activeLayer === 1 && <Layer1 client={client} rates={rates} reportCurrency={reportCurrency} />}
-      {activeLayer === 2 && <Layer2 client={client} />}
+      {activeLayer === 2 && <Layer2 client={client} rates={rates} reportCurrency={reportCurrency} />}
       {activeLayer === 3 && <Layer3 client={client} rates={rates} reportCurrency={reportCurrency} />}
     </div>
   )

@@ -85,9 +85,23 @@ function migrate(raw: any): ClientProfile {
     ...s,
   }))
 
+  // v11 → v12: 頂層 ledgerEntries（若舊資料不存在，從各快照遷移並帶入 snapshotId）
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let topLedgerEntries: any[]
+  if (Array.isArray(raw.ledgerEntries)) {
+    topLedgerEntries = raw.ledgerEntries
+  } else {
+    topLedgerEntries = []
+    for (const snap of v11Snapshots as any[]) { // eslint-disable-line @typescript-eslint/no-explicit-any
+      for (const entry of snap.ledgerEntries ?? []) {
+        topLedgerEntries.push({ ...entry, snapshotId: snap.id })
+      }
+    }
+  }
+
   return {
     ...raw,
-    __schemaVersion: 11,
+    __schemaVersion: 12,
     assetItems: v11AssetItems,
     liabilityItems: Array.isArray(raw.liabilityItems)
       ? raw.liabilityItems
@@ -98,6 +112,7 @@ function migrate(raw: any): ClientProfile {
     targetAllocation: raw.targetAllocation ?? {},
     toleranceBand: raw.toleranceBand ?? 5,
     assetSnapshots: v11Snapshots,
+    ledgerEntries: topLedgerEntries,
     useInvestibleCashFlow: raw.useInvestibleCashFlow ?? false,
     birthYear,
     retirementLifespan,

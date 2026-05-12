@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { AssetPeriodSnapshot, InvestmentItem, InvestmentCategory, LedgerEntry, LedgerLine, MajorExpense } from '../../types/client'
+import type { InvestmentItem, InvestmentCategory, LedgerEntry, LedgerLine, MajorExpense } from '../../types/client'
 import { INVESTMENT_CATEGORY_LABELS } from '../../types/client'
 
 function fmtWan(n: number) {
@@ -12,12 +12,17 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
+const TRADEABLE = new Set(['stock', 'fund', 'bond', 'crypto'])
+
 interface Props {
-  snapshot: AssetPeriodSnapshot
+  entries: LedgerEntry[]                        // 已過濾好的 entries（由呼叫者傳入）
   assetItems: InvestmentItem[]
   majorExpenses: MajorExpense[]
-  onUpdate: (s: AssetPeriodSnapshot) => void
-  onCommit: (updatedAssetItems: InvestmentItem[], updatedMajorExpenses: MajorExpense[], updatedSnapshot: AssetPeriodSnapshot) => void
+  snapshotId?: string                           // 若在快照內，新增 entry 時自動帶入此 id
+  openingAssets?: number                        // 用於對帳顯示（選填）
+  closingAssets?: number                        // 用於對帳顯示（選填）
+  onUpdate: (entries: LedgerEntry[]) => void    // 直接回寫 entries
+  onCommit: (updatedAssetItems: InvestmentItem[], updatedMajorExpenses: MajorExpense[]) => void
 }
 
 type DraftLine = {
@@ -47,7 +52,7 @@ const inputSm: React.CSSProperties = {
   color: 'var(--color-text-secondary)',
 }
 
-export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onCommit }: Props) {
+export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, openingAssets, closingAssets, onUpdate, onCommit }: Props) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [showNewForm, setShowNewForm] = useState(false)
   const [draftDesc, setDraftDesc] = useState('')
@@ -59,23 +64,33 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
 
   const allAssets = [...assetItems, ...pendingNewAssets]
 
-  const entries = snapshot.ledgerEntries ?? []
   const totalExplained = entries.flatMap(e => e.lines).reduce((s, l) => s + l.amountDelta, 0)
-  const unexplained = snapshot.closingAssets != null
-    ? snapshot.closingAssets - snapshot.openingAssets - totalExplained
+  const unexplained = closingAssets != null && openingAssets != null
+    ? closingAssets - openingAssets - totalExplained
     : null
 
-  const patchEntries = (updated: LedgerEntry[]) =>
-    onUpdate({ ...snapshot, ledgerEntries: updated })
-
-  const deleteEntry = (id: string) =>
-    patchEntries(entries.filter(e => e.id !== id))
+  const deleteEntry = (id: string) => {
+    const entry = entries.find(e => e.id === id)
+    const remaining = entries.filter(e => e.id !== id)
+    if (entry) {
+      const reversedItems = assetItems.map(item => {
+        const delta = entry.lines
+          .filter(l => l.assetItemId === item.id)
+          .reduce((s, l) => s + l.amountDelta, 0)
+        return delta !== 0 ? { ...item, amount: item.amount - delta } : item
+      })
+      onUpdate(remaining)
+      onCommit(reversedItems, majorExpenses)
+    } else {
+      onUpdate(remaining)
+    }
+  }
 
   const patchEntry = (id: string, p: Partial<Omit<LedgerEntry, 'lines'>>) =>
-    patchEntries(entries.map(e => e.id === id ? { ...e, ...p } : e))
+    onUpdate(entries.map(e => e.id === id ? { ...e, ...p } : e))
 
   const patchLine = (entryId: string, lineId: string, p: Partial<LedgerLine>) =>
-    patchEntries(entries.map(e =>
+    onUpdate(entries.map(e =>
       e.id === entryId
         ? { ...e, lines: e.lines.map(l => l.id === lineId ? { ...l, ...p } : l) }
         : e
@@ -98,18 +113,30 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
   }
 
   const addLineToEntry = (entryId: string) =>
-    patchEntries(entries.map(e =>
+    onUpdate(entries.map(e =>
       e.id === entryId
         ? { ...e, lines: [...e.lines, { id: crypto.randomUUID(), assetItemId: '', amountDelta: 0 }] }
         : e
     ))
 
-  const removeLineFromEntry = (entryId: string, lineId: string) =>
-    patchEntries(entries.map(e =>
-      e.id === entryId
-        ? { ...e, lines: e.lines.filter(l => l.id !== lineId) }
-        : e
-    ))
+  const removeLineFromEntry = (entryId: string, lineId: string) => {
+    const entry = entries.find(e => e.id === entryId)
+    const line = entry?.lines.find(l => l.id === lineId)
+    const updatedEntries = entries.map(e =>
+      e.id === entryId ? { ...e, lines: e.lines.filter(l => l.id !== lineId) } : e
+    )
+    if (line) {
+      const reversedItems = assetItems.map(item =>
+        item.id === line.assetItemId
+          ? { ...item, amount: item.amount - line.amountDelta }
+          : item
+      )
+      onUpdate(updatedEntries)
+      onCommit(reversedItems, majorExpenses)
+    } else {
+      onUpdate(updatedEntries)
+    }
+  }
 
   const confirmNewAsset = () => {
     if (!newAssetForm || !newAssetForm.label.trim()) return
@@ -150,8 +177,9 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
       description: draftDesc.trim(),
       date: draftDate,
       lines,
+      ...(snapshotId != null ? { snapshotId } : {}),
     }
-    patchEntries([...entries, entry])
+    onUpdate([...entries, entry])
     setDraftDesc('')
     setDraftDate(todayStr())
     setDraftLines([emptyDraftLine()])
@@ -172,7 +200,7 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
     const allLines = entries.flatMap(e => e.lines)
     const missing: string[] = []
 
-    const updatedAssetItems = [
+    const updatedAssetItems: InvestmentItem[] = [
       ...assetItems.map(item => ({ ...item })),
       ...pendingNewAssets.map(a => ({ ...a })),
     ]
@@ -182,32 +210,43 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
         if (line.assetItemId) missing.push(line.assetItemId)
         continue
       }
-      updatedAssetItems[idx] = {
-        ...updatedAssetItems[idx],
-        amount: updatedAssetItems[idx].amount + line.amountDelta,
-        ...(line.qtyDelta != null && updatedAssetItems[idx].units != null
-          ? { units: (updatedAssetItems[idx].units ?? 0) + line.qtyDelta }
+      const item = updatedAssetItems[idx]
+      const updatedItem: InvestmentItem = {
+        ...item,
+        amount: item.amount + line.amountDelta,
+        ...(line.qtyDelta != null && item.units != null
+          ? { units: (item.units ?? 0) + line.qtyDelta }
           : {}),
       }
+
+      // 平均成本計算（僅 TRADEABLE 資產）
+      if (TRADEABLE.has(item.category) && line.qtyDelta != null && line.price != null) {
+        if (line.qtyDelta > 0) {
+          const oldUnits = item.units ?? 0
+          const oldAvgCost = item.avgCost ?? item.unitPrice ?? 0
+          const newUnits = oldUnits + line.qtyDelta
+          if (newUnits > 0) {
+            updatedItem.avgCost = (oldUnits * oldAvgCost + line.qtyDelta * line.price) / newUnits
+          }
+        }
+        // 賣出（qtyDelta < 0）：avgCost 不變，只更新 units（已由上方處理）
+      }
+
+      updatedAssetItems[idx] = updatedItem
     }
 
     setMissingIds(missing)
 
     const actualClosing = updatedAssetItems.reduce((s, a) => s + a.amount, 0)
-    const gap = actualClosing - (snapshot.openingAssets + totalExplained)
+    const openingRef = openingAssets ?? 0
+    const gap = actualClosing - (openingRef + totalExplained)
 
     const currentYear = new Date().getFullYear()
     const updatedMajorExpenses: MajorExpense[] = Math.abs(gap) > 1
       ? [...majorExpenses, { label: `待說明差額 ${todayStr()}`, amount: Math.abs(gap), year: currentYear }]
       : [...majorExpenses]
 
-    const updatedSnapshot: AssetPeriodSnapshot = {
-      ...snapshot,
-      closingAssets: actualClosing,
-      openingAssetItems: snapshot.assetItems,
-    }
-
-    onCommit(updatedAssetItems, updatedMajorExpenses, updatedSnapshot)
+    onCommit(updatedAssetItems, updatedMajorExpenses)
   }
 
   return (
@@ -219,7 +258,7 @@ export function LedgerPanel({ snapshot, assetItems, majorExpenses, onUpdate, onC
 
       {/* Reconciliation summary */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-        <Chip label="期初" value={fmtWan(snapshot.openingAssets)} />
+        {openingAssets != null && <Chip label="期初" value={fmtWan(openingAssets)} />}
         <Chip
           label="已記錄"
           value={(totalExplained >= 0 ? '+' : '') + fmtWan(totalExplained)}

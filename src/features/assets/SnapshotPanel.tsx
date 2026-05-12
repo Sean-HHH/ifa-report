@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
-import type { ClientProfile, AssetPeriodSnapshot, InvestmentItem, MajorExpense } from '../../types/client'
-import { totalAssets } from '../../utils/calculations'
+import type { ClientProfile, AssetPeriodSnapshot } from '../../types/client'
+import { totalAssetsConverted } from '../../utils/calculations'
+import type { FxRates } from '../fx/exchangeRate'
 import { LedgerPanel } from './LedgerPanel'
 
 interface Props {
   client: ClientProfile
+  rates: FxRates
+  reportCurrency: string
   onUpdate: (c: ClientProfile) => void
   onClose: () => void
 }
@@ -19,7 +22,7 @@ function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
-export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
+export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -47,7 +50,7 @@ export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
       id: crypto.randomUUID(),
       periodLabel: date,
       snapshotDate: date,
-      openingAssets: totalAssets(client),
+      openingAssets: totalAssetsConverted(client, rates, reportCurrency),
       netContribution: 0,
       dividendIncome: 0,
       fxImpact: 0,
@@ -64,18 +67,6 @@ export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
     setConfirmDeleteId(null)
   }
 
-  const handleCommit = (
-    updatedAssetItems: InvestmentItem[],
-    updatedMajorExpenses: MajorExpense[],
-    updatedSnapshot: AssetPeriodSnapshot,
-  ) => {
-    onUpdate({
-      ...client,
-      assetItems: updatedAssetItems,
-      majorExpenses: updatedMajorExpenses,
-      assetSnapshots: snapshots.map(s => s.id === updatedSnapshot.id ? updatedSnapshot : s),
-    })
-  }
 
   return (
     <div ref={ref} style={{
@@ -105,7 +96,7 @@ export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
           background: 'var(--color-primary)', color: '#fff',
           border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
         }}>
-          ＋ 建立期間記錄（現在 {fmtWan(totalAssets(client))} 元）
+          ＋ 建立期間記錄（現在 {fmtWan(totalAssetsConverted(client, rates, reportCurrency))} 元）
         </button>
       </div>
 
@@ -179,11 +170,38 @@ export function SnapshotPanel({ client, onUpdate, onClose }: Props) {
                   <div style={{ padding: '8px 16px 12px', borderTop: '1px solid var(--color-border)', background: '#f8fafc' }}>
                     <SnapField label="標籤" value={s.periodLabel} onChange={v => patchSnapshot(s.id, { periodLabel: v })} isText />
                     <LedgerPanel
-                      snapshot={s}
+                      entries={(s.ledgerEntries ?? []).filter(e => e.snapshotId === s.id || e.snapshotId == null)}
                       assetItems={client.assetItems}
                       majorExpenses={client.majorExpenses}
-                      onUpdate={updated => patchSnapshot(s.id, updated)}
-                      onCommit={handleCommit}
+                      snapshotId={s.id}
+                      openingAssets={s.openingAssets}
+                      closingAssets={s.closingAssets}
+                      onUpdate={updatedEntries => {
+                        // merge back: replace entries belonging to this snapshot, keep others
+                        const otherEntries = client.ledgerEntries.filter(e => e.snapshotId !== s.id)
+                        onUpdate({
+                          ...client,
+                          ledgerEntries: [...otherEntries, ...updatedEntries],
+                          assetSnapshots: snapshots.map(snap =>
+                            snap.id === s.id
+                              ? { ...snap, ledgerEntries: updatedEntries }
+                              : snap
+                          ),
+                        })
+                      }}
+                      onCommit={(updatedAssetItems, updatedMajorExpenses) => {
+                        const actualClosing = updatedAssetItems.reduce((sum, a) => sum + a.amount, 0)
+                        onUpdate({
+                          ...client,
+                          assetItems: updatedAssetItems,
+                          majorExpenses: updatedMajorExpenses,
+                          assetSnapshots: snapshots.map(snap =>
+                            snap.id === s.id
+                              ? { ...snap, closingAssets: actualClosing, openingAssetItems: snap.assetItems }
+                              : snap
+                          ),
+                        })
+                      }}
                     />
                   </div>
                 )}
