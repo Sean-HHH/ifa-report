@@ -188,6 +188,37 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
     setExpandedIds(prev => new Set([...prev, entry.id]))
   }
 
+  const createInitialEntry = () => {
+    const lines = assetItems
+      .filter(item => item.amount !== 0)
+      .map(item => {
+        const isTradeable = TRADEABLE.has(item.category)
+        const hasQtyPrice = isTradeable && item.units != null && item.units !== 0 && item.unitPrice != null && item.unitPrice !== 0
+        return {
+          id: crypto.randomUUID(),
+          assetItemId: item.id,
+          amountDelta: item.amount,
+          ...(hasQtyPrice ? { qtyDelta: item.units!, price: item.unitPrice! } : {}),
+        }
+      })
+    const entry: LedgerEntry = {
+      id: crypto.randomUUID(),
+      description: '初始建倉',
+      date: todayStr(),
+      lines,
+      ...(snapshotId != null ? { snapshotId } : {}),
+    }
+    // set avgCost = unitPrice for TRADEABLE items with known qty/price
+    const updatedAssetItems = assetItems.map(item => {
+      if (TRADEABLE.has(item.category) && item.units != null && item.units !== 0 && item.unitPrice != null && item.unitPrice !== 0) {
+        return { ...item, avgCost: item.unitPrice }
+      }
+      return item
+    })
+    onUpdate([...entries, entry])
+    onCommit(updatedAssetItems, majorExpenses)
+  }
+
   const toggleExpand = (id: string) =>
     setExpandedIds(prev => {
       const next = new Set(prev)
@@ -274,7 +305,21 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
       </div>
 
       {/* Entry list */}
-      {entries.length === 0 && !showNewForm && (
+      {entries.length === 0 && !showNewForm && assetItems.length > 0 && (
+        <div style={{ border: '1px dashed #bfdbfe', borderRadius: 6, padding: '10px 12px', marginBottom: 8, background: '#f0f9ff', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#1d4ed8' }}>從現有資產建立初始建倉記錄</div>
+          <div style={{ fontSize: 11, color: '#64748b' }}>
+            將目前 {assetItems.length} 筆資產一次轉為初始交易，並設定成本基礎
+          </div>
+          <button
+            onClick={createInitialEntry}
+            style={{ marginTop: 4, fontSize: 12, fontWeight: 600, padding: '5px 12px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', alignSelf: 'flex-start' }}
+          >
+            建立初始建倉記錄
+          </button>
+        </div>
+      )}
+      {entries.length === 0 && !showNewForm && assetItems.length === 0 && (
         <div style={{ fontSize: 12, color: 'var(--color-text-muted)', padding: '6px 0 8px', textAlign: 'center' }}>
           尚未記錄任何交易，點擊下方新增
         </div>
