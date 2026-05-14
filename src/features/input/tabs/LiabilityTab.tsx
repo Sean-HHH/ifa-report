@@ -31,6 +31,14 @@ export function LiabilityTab({ c, patch }: Props) {
               value={item.label} onChange={e => update(i, { label: e.target.value })} placeholder="如：房貸、信用卡費" />
             <input type="number" className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
               value={item.amount} onChange={e => update(i, { amount: Number(e.target.value) })} />
+            <div className="relative">
+              <input type="number" step="0.01" min="0" max="100"
+                className="w-24 bg-white border border-slate-200 rounded-lg pl-3 pr-7 py-2 text-sm focus:border-blue-300 outline-none"
+                value={item.annualInterestRate ?? ''}
+                placeholder="年利率"
+                onChange={e => update(i, { annualInterestRate: e.target.value === '' ? undefined : Number(e.target.value) })} />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
+            </div>
             <button onClick={() => remove(i)} aria-label="刪除此筆負債" className="text-slate-300 hover:text-red-400 transition-colors p-1 flex items-center" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>

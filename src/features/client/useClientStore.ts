@@ -99,13 +99,17 @@ function migrate(raw: any): ClientProfile {
     }
   }
 
+  // v12 → v13: LiabilityItem 補 annualInterestRate（optional，舊資料無此欄位保持 undefined）
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawLiabilities: any[] = Array.isArray(raw.liabilityItems)
+    ? raw.liabilityItems
+    : (raw.liabilities ? [{ label: '負債', amount: raw.liabilities, type: 'long_term' }] : [])
+
   return {
     ...raw,
-    __schemaVersion: 12,
+    __schemaVersion: 13,
     assetItems: v11AssetItems,
-    liabilityItems: Array.isArray(raw.liabilityItems)
-      ? raw.liabilityItems
-      : (raw.liabilities ? [{ label: '負債', amount: raw.liabilities, type: 'long_term' }] : []),
+    liabilityItems: rawLiabilities,
     incomes,
     expenses,
     globalInflationRate: raw.globalInflationRate ?? 0.02,

@@ -127,6 +127,7 @@ export interface LiabilityItem {
   label: string
   amount: number
   type: LiabilityType
+  annualInterestRate?: number  // 年利率（%），選填
   note?: string
 }
 
