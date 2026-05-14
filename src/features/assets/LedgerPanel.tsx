@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { InvestmentItem, InvestmentCategory, LedgerEntry, LedgerLine, MajorExpense } from '../../types/client'
+import type { InvestmentItem, InvestmentCategory, LedgerEntry, LedgerLine, LedgerLineType, MajorExpense } from '../../types/client'
 import { INVESTMENT_CATEGORY_LABELS } from '../../types/client'
 
 function fmtWan(n: number) {
@@ -14,19 +14,29 @@ function todayStr() {
 
 const TRADEABLE = new Set(['stock', 'fund', 'bond', 'crypto'])
 
+const LINE_TYPE_LABELS: Record<LedgerLineType, string> = {
+  buy: '買入',
+  sell: '賣出',
+  dividend: '配息',
+  fee: '費用',
+  transfer: '轉帳',
+  valuation: '估值',
+}
+
 interface Props {
-  entries: LedgerEntry[]                        // 已過濾好的 entries（由呼叫者傳入）
+  entries: LedgerEntry[]
   assetItems: InvestmentItem[]
   majorExpenses: MajorExpense[]
-  snapshotId?: string                           // 若在快照內，新增 entry 時自動帶入此 id
-  openingAssets?: number                        // 用於對帳顯示（選填）
-  closingAssets?: number                        // 用於對帳顯示（選填）
-  onUpdate: (entries: LedgerEntry[]) => void    // 直接回寫 entries
+  snapshotId?: string
+  openingAssets?: number
+  closingAssets?: number
+  onUpdate: (entries: LedgerEntry[]) => void
   onCommit: (updatedAssetItems: InvestmentItem[], updatedMajorExpenses: MajorExpense[]) => void
 }
 
 type DraftLine = {
   id: string
+  type: LedgerLineType
   assetItemId: string
   amountDelta: string
   qtyDelta: string
@@ -35,14 +45,14 @@ type DraftLine = {
 }
 
 interface NewAssetFormState {
-  entryId: string | null  // null = draft form
+  entryId: string | null
   lineId: string
   label: string
   category: InvestmentCategory
 }
 
 function emptyDraftLine(): DraftLine {
-  return { id: crypto.randomUUID(), assetItemId: '', amountDelta: '', qtyDelta: '', price: '', note: '' }
+  return { id: crypto.randomUUID(), type: 'buy', assetItemId: '', amountDelta: '', qtyDelta: '', price: '', note: '' }
 }
 
 const inputSm: React.CSSProperties = {
@@ -96,7 +106,6 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
         : e
     ))
 
-  // Auto-updates amountDelta when both qtyDelta and price are set
   const patchLineAuto = (entryId: string, lineId: string, p: Partial<LedgerLine>) => {
     const entry = entries.find(e => e.id === entryId)
     const line = entry?.lines.find(l => l.id === lineId)
@@ -115,7 +124,7 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
   const addLineToEntry = (entryId: string) =>
     onUpdate(entries.map(e =>
       e.id === entryId
-        ? { ...e, lines: [...e.lines, { id: crypto.randomUUID(), assetItemId: '', amountDelta: 0 }] }
+        ? { ...e, lines: [...e.lines, { id: crypto.randomUUID(), type: 'buy' as LedgerLineType, assetItemId: '', amountDelta: 0 }] }
         : e
     ))
 
@@ -165,6 +174,7 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
         const autoAmt = qty != null && qty !== 0 && price != null && price !== 0 ? qty * price : null
         return {
           id: l.id,
+          type: l.type,
           assetItemId: l.assetItemId,
           amountDelta: autoAmt ?? Number(l.amountDelta),
           ...(qty != null ? { qtyDelta: qty } : {}),
@@ -196,6 +206,7 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
         const hasQtyPrice = isTradeable && item.units != null && item.units !== 0 && item.unitPrice != null && item.unitPrice !== 0
         return {
           id: crypto.randomUUID(),
+          type: 'buy' as LedgerLineType,
           assetItemId: item.id,
           amountDelta: item.amount,
           ...(hasQtyPrice ? { qtyDelta: item.units!, price: item.unitPrice! } : {}),
@@ -208,7 +219,6 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
       lines,
       ...(snapshotId != null ? { snapshotId } : {}),
     }
-    // set avgCost = unitPrice for TRADEABLE items with known qty/price
     const updatedAssetItems = assetItems.map(item => {
       if (TRADEABLE.has(item.category) && item.units != null && item.units !== 0 && item.unitPrice != null && item.unitPrice !== 0) {
         return { ...item, avgCost: item.unitPrice }
@@ -250,7 +260,6 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
           : {}),
       }
 
-      // 平均成本計算（僅 TRADEABLE 資產）
       if (TRADEABLE.has(item.category) && line.qtyDelta != null && line.price != null) {
         if (line.qtyDelta > 0) {
           const oldUnits = item.units ?? 0
@@ -260,7 +269,6 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
             updatedItem.avgCost = (oldUnits * oldAvgCost + line.qtyDelta * line.price) / newUnits
           }
         }
-        // 賣出（qtyDelta < 0）：avgCost 不變，只更新 units（已由上方處理）
       }
 
       updatedAssetItems[idx] = updatedItem
@@ -282,7 +290,6 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
 
   return (
     <div style={{ marginTop: 10 }}>
-      {/* Section label */}
       <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
         本期交易記錄
       </div>
@@ -332,7 +339,6 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
             const isExpanded = expandedIds.has(entry.id)
             return (
               <div key={entry.id} style={{ border: '1px solid var(--color-border)', borderRadius: 6, overflow: 'hidden', background: '#fff' }}>
-                {/* Header row */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -358,7 +364,6 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
                   </button>
                 </div>
 
-                {/* Expanded edit area */}
                 {isExpanded && (
                   <div style={{ borderTop: '1px solid var(--color-border)', padding: '8px', background: '#f8fafc' }}>
                     <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
@@ -376,6 +381,14 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
                       return (
                         <div key={line.id} style={{ marginBottom: 6 }}>
                           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <select
+                              value={line.type ?? 'buy'}
+                              onChange={e => patchLine(entry.id, line.id, { type: e.target.value as LedgerLineType })}
+                              style={{ ...inputSm, width: 52, flexShrink: 0 }}>
+                              {(Object.entries(LINE_TYPE_LABELS) as [LedgerLineType, string][]).map(([k, v]) => (
+                                <option key={k} value={k}>{v}</option>
+                              ))}
+                            </select>
                             <select
                               value={showMiniForm ? '__new__' : line.assetItemId}
                               onChange={e => {
@@ -443,14 +456,12 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
         </div>
       )}
 
-      {/* Missing asset warning */}
       {missingIds.length > 0 && (
         <div style={{ fontSize: 11, color: '#d97706', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 4, padding: '4px 8px', marginBottom: 6 }}>
           {missingIds.length} 筆明細找不到對應資產（已刪除），已略過。
         </div>
       )}
 
-      {/* Apply button */}
       {entries.length > 0 && !showNewForm && (
         <button onClick={applyLedger}
           style={{ fontSize: 12, fontWeight: 600, width: '100%', padding: '6px 0', marginBottom: 6, background: '#0f172a', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
@@ -458,7 +469,6 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
         </button>
       )}
 
-      {/* New entry form */}
       {showNewForm && (
         <div style={{ border: '1px solid var(--color-primary)', borderRadius: 6, padding: 8, marginBottom: 8, background: '#eff6ff' }}>
           <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
@@ -480,6 +490,14 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
             return (
               <div key={line.id} style={{ marginBottom: 6 }}>
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <select
+                    value={line.type}
+                    onChange={e => setDraftLines(prev => prev.map((l, i) => i === idx ? { ...l, type: e.target.value as LedgerLineType } : l))}
+                    style={{ ...inputSm, width: 52, flexShrink: 0 }}>
+                    {(Object.entries(LINE_TYPE_LABELS) as [LedgerLineType, string][]).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
                   <select
                     value={showMiniForm ? '__new__' : line.assetItemId}
                     onChange={e => {
@@ -574,7 +592,6 @@ export function LedgerPanel({ entries, assetItems, majorExpenses, snapshotId, op
         </div>
       )}
 
-      {/* Add entry trigger */}
       {!showNewForm && (
         <button onClick={() => setShowNewForm(true)}
           style={{ fontSize: 12, fontWeight: 500, color: 'var(--color-primary)', background: 'none', border: '1px dashed var(--color-primary)', borderRadius: 4, padding: '5px 0', cursor: 'pointer', width: '100%', opacity: 0.8 }}>

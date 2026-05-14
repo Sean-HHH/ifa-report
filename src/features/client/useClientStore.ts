@@ -105,9 +105,19 @@ function migrate(raw: any): ClientProfile {
     ? raw.liabilityItems
     : (raw.liabilities ? [{ label: '負債', amount: raw.liabilities, type: 'long_term' }] : [])
 
+  // v13 → v14: LedgerLine 補 type（舊資料預設 'buy'）
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const v14LedgerEntries = (topLedgerEntries as any[]).map((entry: any) => ({
+    ...entry,
+    lines: (entry.lines ?? []).map((line: any) => ({
+      ...line,
+      type: line.type ?? 'buy',
+    })),
+  }))
+
   return {
     ...raw,
-    __schemaVersion: 13,
+    __schemaVersion: 14,
     assetItems: v11AssetItems,
     liabilityItems: rawLiabilities,
     incomes,
@@ -116,7 +126,7 @@ function migrate(raw: any): ClientProfile {
     targetAllocation: raw.targetAllocation ?? {},
     toleranceBand: raw.toleranceBand ?? 5,
     assetSnapshots: v11Snapshots,
-    ledgerEntries: topLedgerEntries,
+    ledgerEntries: v14LedgerEntries,
     useInvestibleCashFlow: raw.useInvestibleCashFlow ?? false,
     birthYear,
     retirementLifespan,

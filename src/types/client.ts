@@ -74,9 +74,12 @@ export const ASSET_PURPOSE_LABELS: Record<AssetPurpose, string> = {
   income: '收益型', protection: '積極型',
 }
 
+export type LedgerLineType = 'buy' | 'sell' | 'dividend' | 'fee' | 'transfer' | 'valuation'
+
 export interface LedgerLine {
   id: string
   assetItemId: string
+  type?: LedgerLineType  // 交易類型；舊資料預設 'buy'
   amountDelta: number
   qtyDelta?: number
   price?: number

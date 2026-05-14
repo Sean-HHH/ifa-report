@@ -1,4 +1,4 @@
-import type { ClientProfile, InvestmentItem, InvestmentCategory } from '../../types/client'
+import type { ClientProfile, InvestmentItem, InvestmentCategory, AssetPeriodSnapshot, LedgerEntry } from '../../types/client'
 import { RISK_RETURN, INVESTMENT_CATEGORY_LABELS, calcCurrentAge } from '../../types/client'
 import type { FxRates } from '../fx/exchangeRate'
 
@@ -183,6 +183,61 @@ export function calcSnapshotComparison(
   const totalChangePct = openingAssets > 0 ? (totalChange / openingAssets) * 100 : 0
   const periodLabel = `${from.periodLabel} → ${to.periodLabel}`
   return { periodLabel, openingAssets, netContribution, investmentGain, dividendIncome, fxImpact, fees, closingAssets, totalChange, totalChangePct }
+}
+
+export interface PeriodPnL {
+  snapshotId: string
+  periodLabel: string
+  openingAssets: number
+  closingAssets: number
+  netContribution: number
+  dividendIncome: number
+  fees: number
+  marketGain: number
+  totalReturn: number
+  returnPct: number
+}
+
+export function calcPeriodPnL(
+  snapshot: AssetPeriodSnapshot,
+  ledgerEntries: LedgerEntry[],
+): PeriodPnL {
+  const closing = snapshot.closingAssets ?? snapshot.openingAssets
+  const relevant = ledgerEntries.filter(e => e.snapshotId === snapshot.id)
+
+  let netContribution = 0
+  let dividendIncome = 0
+  let fees = 0
+
+  for (const entry of relevant) {
+    for (const line of entry.lines) {
+      const t = line.type ?? 'buy'
+      if (t === 'buy' || t === 'sell' || t === 'transfer') {
+        netContribution += line.amountDelta
+      } else if (t === 'dividend') {
+        dividendIncome += line.amountDelta
+      } else if (t === 'fee') {
+        fees += line.amountDelta
+      }
+    }
+  }
+
+  const totalReturn = closing - snapshot.openingAssets
+  const marketGain = totalReturn - netContribution - dividendIncome - fees
+  const returnPct = snapshot.openingAssets > 0 ? (totalReturn / snapshot.openingAssets) * 100 : 0
+
+  return {
+    snapshotId: snapshot.id,
+    periodLabel: snapshot.periodLabel,
+    openingAssets: snapshot.openingAssets,
+    closingAssets: closing,
+    netContribution,
+    dividendIncome,
+    fees,
+    marketGain,
+    totalReturn,
+    returnPct,
+  }
 }
 
 export interface AssetDeviationItem {

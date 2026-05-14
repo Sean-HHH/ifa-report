@@ -8,7 +8,7 @@ import {
 import {
   totalLiabilities, netWorthConverted, totalAssetsConverted, totalLiabilitiesConverted,
   convertCurrency, fmtAmount, fmtPct,
-  calcAssetAllocation, calcAssetDeviation, calcCategoryBreakdown,
+  calcAssetAllocation, calcAssetDeviation, calcCategoryBreakdown, calcPeriodPnL,
 } from '../../utils/calculations'
 import type { FxRates } from '../fx/exchangeRate'
 import { StatCard } from '../../shared/StatCard'
@@ -428,6 +428,48 @@ function Layer2({ client, rates, reportCurrency }: { client: ClientProfile; rate
           </span>
         </div>
       </div>
+
+      {/* P&L decomposition for selected snapshot */}
+      {(() => {
+        const activeSnap = snapshots.length === 1 ? snapshots[0] : (snapshots.length >= 2 ? toSnap : null)
+        if (!activeSnap || activeSnap.closingAssets == null) return null
+        const pnl = calcPeriodPnL(activeSnap, client.ledgerEntries)
+        const returnColor = pnl.totalReturn >= 0 ? 'text-emerald-600' : 'text-red-500'
+        const gainColor = pnl.marketGain >= 0 ? 'text-emerald-600' : 'text-red-500'
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { label: '淨投入', value: pnl.netContribution, signed: true },
+              { label: '配息收入', value: pnl.dividendIncome, signed: true },
+              { label: '費用', value: pnl.fees, signed: true },
+              { label: '市場損益', value: pnl.marketGain, signed: true, primary: true },
+            ].map(({ label, value, signed, primary }) => {
+              const c = !signed ? 'text-slate-700' : primary
+                ? (value >= 0 ? 'text-emerald-600' : 'text-red-500')
+                : (value >= 0 ? 'text-slate-700' : 'text-red-500')
+              return (
+                <div key={label} className={`rounded-lg px-3 py-2 border ${primary ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
+                  <div className="text-xs text-slate-400 mb-0.5">{label}</div>
+                  <div className={`text-sm font-semibold ${c}`}>
+                    {signed && value !== 0 ? (value >= 0 ? '+' : '') : ''}{fmtWan(value)}
+                  </div>
+                </div>
+              )
+            })}
+            <div className="col-span-2 sm:col-span-4 flex items-center gap-2 text-xs text-slate-500 pl-1">
+              <span>期間報酬率：</span>
+              <span className={`font-semibold ${returnColor}`}>
+                {pnl.returnPct >= 0 ? '+' : ''}{pnl.returnPct.toFixed(2)}%
+              </span>
+              <span className="text-slate-300">·</span>
+              <span>市場損益：</span>
+              <span className={`font-semibold ${gainColor}`}>
+                {pnl.marketGain >= 0 ? '+' : ''}{fmtWan(pnl.marketGain)}
+              </span>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Category breakdown */}
       {(aBreakdown || bBreakdown) ? (
