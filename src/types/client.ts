@@ -164,7 +164,8 @@ export interface ClientProfile {
   customReturnRate: number | null
   monthlyContribution: number
   useInvestibleCashFlow: boolean  // true = 定期投入連動可投資現金流
-  globalInflationRate: number  // 全局通膨率，影響支出 projection，預設 0.02
+  globalInflationRate: number      // 全局通膨率，影響支出 projection，預設 0.02
+  realEstateReturnRate?: number   // 不動產年化增值率，預設同 globalInflationRate
   targetAllocation: Partial<Record<InvestmentCategory, number>>  // 各類別目標 %（0-100）
   toleranceBand: number   // 容許偏離 %，預設 5
   assetSnapshots: AssetPeriodSnapshot[]  // Layer 2 快照列表（最新在前）
@@ -233,6 +234,7 @@ export function newClient(): ClientProfile {
     monthlyContribution: 10000,
     useInvestibleCashFlow: false,
     globalInflationRate: 0.02,
+    realEstateReturnRate: 0.02,
     targetAllocation: {},
     toleranceBand: 5,
     assetSnapshots: [],

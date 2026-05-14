@@ -44,6 +44,7 @@ export function calcRetirement(c: ClientProfile): RetirementResult {
       year: new Date().getFullYear() + yearsToRetirement + y,
       age: currentAge + yearsToRetirement + y,
       conservative: remaining, base: remaining, aggressive: remaining, contributed: 0,
+      liquidBase: remaining, realEstateValue: 0, liquidityWarning: false, warningExpense: 0,
     })
     remaining = remaining * (1 + postRetirementRate) - monthlyWithdraw * 12
     if (remaining < 0) remaining = 0

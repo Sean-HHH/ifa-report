@@ -19,8 +19,13 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
   const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, fxRates)
   const disp = (n: number, compact = false) => fmtAmount(rc(n), reportCurrency, compact)
 
+  const warnings = useMemo(() => data.filter(d => d.liquidityWarning), [data])
+
   const labels = data.map(d => `${d.year} / ${d.age}歲`)
   const contributed = data.map(d => nw + d.contributed)
+
+  // 警示年份在圖上打紅點（基準情境線上）
+  const warningPoints = data.map(d => d.liquidityWarning ? d.base : NaN)
 
   const chartData = {
     labels,
@@ -62,6 +67,18 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
         tension: 0.3,
         fill: 'origin',
       },
+      ...(warnings.length > 0 ? [{
+        label: '流動性警示',
+        data: warningPoints,
+        borderColor: 'transparent',
+        backgroundColor: '#ef4444',
+        borderWidth: 0,
+        pointRadius: 7,
+        pointHoverRadius: 9,
+        tension: 0,
+        fill: false,
+        showLine: false,
+      }] : []),
     ],
   }
 
@@ -113,20 +130,54 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
         </div>
       </div>
 
+      {/* 投影假設說明 */}
+      <div className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2 space-y-0.5">
+        <div>投資組合（不含不動產）報酬率：{client.customReturnRate != null ? fmtPct(client.customReturnRate * 100) + '（自訂）' : `${fmtPct(rates.conservative * 100)} / ${fmtPct(rates.base * 100)} / ${fmtPct(rates.aggressive * 100)}（依風險偏好）`}</div>
+        <div>不動產年化增值率：{fmtPct(((client.realEstateReturnRate ?? client.globalInflationRate) * 100))}　·　通膨率：{fmtPct(client.globalInflationRate * 100)}</div>
+      </div>
+
       {client.majorExpenses.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-slate-700 mb-2">重大支出時程</h3>
           <div className="space-y-1">
-            {client.majorExpenses.map((e, i) => (
-              <div key={i} className="flex justify-between items-center py-2 px-3 bg-red-50 rounded-lg text-sm">
-                <span className="text-red-700">{e.label}</span>
-                <div className="flex gap-3">
-                  <span className="text-red-500">{e.year} 年</span>
-                  <span className="font-medium text-red-700">-{disp(e.amount, true)}</span>
+            {client.majorExpenses.map((e, i) => {
+              const yr = data.find(d => d.year === e.year)
+              const isWarning = yr?.liquidityWarning ?? false
+              return (
+                <div key={i} className={`flex justify-between items-center py-2 px-3 rounded-lg text-sm ${isWarning ? 'bg-red-100 border border-red-200' : 'bg-red-50'}`}>
+                  <div className="flex items-center gap-2">
+                    {isWarning && <span className="text-red-500 font-bold text-xs">⚠</span>}
+                    <span className="text-red-700">{e.label}</span>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="text-red-500">{e.year} 年</span>
+                    <span className="font-medium text-red-700">-{disp(e.amount, true)}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
+        </div>
+      )}
+
+      {/* 流動性警示區塊 */}
+      {warnings.length > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-red-700">
+            <span>⚠ 流動性不足警示</span>
+          </div>
+          <div className="text-xs text-red-600 leading-relaxed">
+            以下年度的重大支出超過預估液態資產（流動現金 + 投資，不含不動產）。即使總資產帳面足夠，實際執行仍需出售不動產或調整支出計畫。
+          </div>
+          {warnings.map(w => (
+            <div key={w.year} className="flex items-center justify-between text-sm bg-white rounded-lg px-3 py-2 border border-red-100">
+              <span className="text-red-700 font-medium">{w.year} 年（{w.age} 歲）</span>
+              <div className="text-right text-xs">
+                <div className="text-red-600">需支出 {disp(w.warningExpense, true)}</div>
+                <div className="text-slate-400">液態淨值約 {disp(w.liquidBase, true)}</div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

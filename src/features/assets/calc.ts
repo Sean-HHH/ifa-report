@@ -39,10 +39,14 @@ export function netWorthConverted(c: ClientProfile, rates: FxRates, reportCurren
 export interface GrowthYear {
   year: number
   age: number
-  conservative: number
-  base: number
-  aggressive: number
+  conservative: number   // 總資產（液態 + 不動產）保守情境
+  base: number           // 總資產基準情境
+  aggressive: number     // 總資產積極情境
   contributed: number
+  liquidBase: number     // 液態資產淨值（基準情境），不含不動產
+  realEstateValue: number
+  liquidityWarning: boolean   // 該年重大支出超過液態資產
+  warningExpense: number      // 觸發警示的支出金額
 }
 
 export function calcAssetGrowth(c: ClientProfile): GrowthYear[] {
@@ -52,14 +56,27 @@ export function calcAssetGrowth(c: ClientProfile): GrowthYear[] {
     base: c.customReturnRate !== null ? c.customReturnRate : rates.base,
     aggressive: c.customReturnRate !== null ? c.customReturnRate * 1.2 : rates.aggressive,
   }
+  const reRate = c.realEstateReturnRate ?? c.globalInflationRate ?? 0.02
 
   const currentAge = calcCurrentAge(c.birthYear)
   const currentYear = new Date().getFullYear()
-  const nw = netWorth(c)
   const monthly = c.monthlyContribution
-  const result: GrowthYear[] = []
 
-  let cv = nw, bv = nw, av = nw, contributed = 0
+  // 拆分液態池 vs 不動產池
+  const reGross = c.assetItems
+    .filter(i => i.category === 'real_estate')
+    .reduce((s, i) => s + i.amount, 0)
+  const liquidAssets = totalAssets(c) - reGross
+  const liabs = totalLiabilities(c)
+
+  // 液態淨值（可為負，若貸款 > 流動資產）
+  let lcv = liquidAssets - liabs
+  let lbv = liquidAssets - liabs
+  let lav = liquidAssets - liabs
+  let re = reGross
+  let contributed = 0
+
+  const result: GrowthYear[] = []
 
   for (let y = 0; y < 30; y++) {
     const targetYear = currentYear + y
@@ -67,11 +84,27 @@ export function calcAssetGrowth(c: ClientProfile): GrowthYear[] {
       .filter(e => e.year === targetYear)
       .reduce((s, e) => s + e.amount * Math.pow(1 + c.globalInflationRate, y), 0)
 
-    result.push({ year: targetYear, age: currentAge + y, conservative: cv, base: bv, aggressive: av, contributed })
+    // 流動性警示：基準情境的液態淨值不足以支付重大支出
+    const liquidityWarning = majorOut > 0 && lbv < majorOut
 
-    cv = (cv - majorOut) * (1 + effectiveRates.conservative) + monthly * 12
-    bv = (bv - majorOut) * (1 + effectiveRates.base) + monthly * 12
-    av = (av - majorOut) * (1 + effectiveRates.aggressive) + monthly * 12
+    result.push({
+      year: targetYear,
+      age: currentAge + y,
+      conservative: lcv + re,
+      base: lbv + re,
+      aggressive: lav + re,
+      contributed,
+      liquidBase: lbv,
+      realEstateValue: re,
+      liquidityWarning,
+      warningExpense: liquidityWarning ? majorOut : 0,
+    })
+
+    // 重大支出從液態池扣，不動產不動
+    lcv = (lcv - majorOut) * (1 + effectiveRates.conservative) + monthly * 12
+    lbv = (lbv - majorOut) * (1 + effectiveRates.base) + monthly * 12
+    lav = (lav - majorOut) * (1 + effectiveRates.aggressive) + monthly * 12
+    re = re * (1 + reRate)
     contributed += monthly * 12
   }
 

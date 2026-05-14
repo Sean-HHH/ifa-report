@@ -42,8 +42,8 @@ export function InvestTab({ c, patch }: Props) {
         </div>
       </Section>
       <Section title="報酬率設定">
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-slate-500 w-32">預期年化報酬率</label>
+        <div className="flex items-center gap-3 mb-3">
+          <label className="text-sm text-slate-500 w-32">投資組合報酬率</label>
           <input
             type="number"
             className="border border-slate-200 rounded-lg px-3 py-2 w-28 text-sm focus:border-blue-300 outline-none"
@@ -52,6 +52,18 @@ export function InvestTab({ c, patch }: Props) {
             onChange={e => patch({ customReturnRate: e.target.value ? Number(e.target.value) / 100 : null })}
           />
           <span className="text-sm text-slate-400">%（空白 = 依風險預設）</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <label className="text-sm text-slate-500 w-32">不動產年化增值</label>
+          <input
+            type="number"
+            step="0.1"
+            className="border border-slate-200 rounded-lg px-3 py-2 w-28 text-sm focus:border-blue-300 outline-none"
+            placeholder={((c.globalInflationRate ?? 0.02) * 100).toFixed(1)}
+            value={c.realEstateReturnRate !== undefined ? (c.realEstateReturnRate * 100).toFixed(1) : ''}
+            onChange={e => patch({ realEstateReturnRate: e.target.value ? Number(e.target.value) / 100 : c.globalInflationRate })}
+          />
+          <span className="text-sm text-slate-400">%（空白 = 同通膨率）</span>
         </div>
       </Section>
       <Section title="定期投入">
