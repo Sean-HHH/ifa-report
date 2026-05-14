@@ -107,6 +107,7 @@ export interface AssetPeriodSnapshot {
   ledgerEntries?: LedgerEntry[]
   closingAssets?: number
   openingAssetItems?: InvestmentItem[]
+  shareId?: string  // Supabase shared_snapshots row UUID；undefined = 未分享
 }
 
 export interface InvestmentItem {

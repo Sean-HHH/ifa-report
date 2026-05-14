@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import type { AssetPeriodSnapshot } from './types/client'
 import { ShareModal } from './features/share/ShareModal'
+import { ShareListModal } from './features/share/ShareListModal'
 import { useClientStore } from './hooks/useClientStore'
 import { useAppSettings } from './hooks/useAppSettings'
 import { ClientManager } from './features/client/ClientManager'
@@ -37,7 +39,19 @@ export default function App() {
   const [printing, setPrinting] = useState(false)
   const [showFxPanel, setShowFxPanel] = useState(false)
   const [showSnapshotPanel, setShowSnapshotPanel] = useState(false)
-  const [showShareModal, setShowShareModal] = useState(false)
+  const [showShareListModal, setShowShareListModal] = useState(false)
+  const [shareTargetSnapshot, setShareTargetSnapshot] = useState<AssetPeriodSnapshot | null>(null)
+
+  const handleShareUpdate = (updated: AssetPeriodSnapshot) => {
+    if (!activeClient) return
+    updateClient({
+      ...activeClient,
+      assetSnapshots: activeClient.assetSnapshots.map(s =>
+        s.id === updated.id ? updated : s
+      ),
+    })
+    setShareTargetSnapshot(updated)
+  }
 
   const handleExport = async () => {
     if (!activeClient) return
@@ -51,8 +65,20 @@ export default function App() {
 
   return (
     <>
-    {showShareModal && activeClient && (
-      <ShareModal client={activeClient} onClose={() => setShowShareModal(false)} />
+    {showShareListModal && activeClient && (
+      <ShareListModal
+        client={activeClient}
+        onClose={() => setShowShareListModal(false)}
+        onManage={snap => setShareTargetSnapshot(snap)}
+      />
+    )}
+    {shareTargetSnapshot && activeClient && (
+      <ShareModal
+        snapshot={shareTargetSnapshot}
+        client={activeClient}
+        onClose={() => setShareTargetSnapshot(null)}
+        onUpdate={handleShareUpdate}
+      />
     )}
     <div style={{ display: 'flex', height: '100vh', background: 'var(--color-bg)', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', sans-serif" }}>
       {/* Sidebar — 列印時隱藏 */}
@@ -149,15 +175,15 @@ export default function App() {
             )}
 
             {activeClient && (
-              <button onClick={() => setShowShareModal(true)} style={{
+              <button onClick={() => setShowShareListModal(true)} style={{
                 fontSize: 12, padding: '5px 10px',
-                border: '1px solid var(--color-border)',
+                border: `1px solid ${showShareListModal ? 'var(--color-primary)' : 'var(--color-border)'}`,
                 borderRadius: 'var(--radius-sm)',
-                background: 'var(--color-surface)',
-                color: 'var(--color-text-muted)',
+                background: showShareListModal ? 'rgba(37,99,235,0.06)' : 'var(--color-surface)',
+                color: showShareListModal ? 'var(--color-primary)' : 'var(--color-text-muted)',
                 cursor: 'pointer',
               }}>
-                分享
+                分享管理
               </button>
             )}
 
@@ -188,6 +214,7 @@ export default function App() {
             reportCurrency={reportCurrency}
             onUpdate={updateClient}
             onClose={() => setShowSnapshotPanel(false)}
+            onShare={snap => setShareTargetSnapshot(snap)}
           />
         )}
 

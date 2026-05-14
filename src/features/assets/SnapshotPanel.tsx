@@ -13,6 +13,7 @@ interface Props {
   reportCurrency: string
   onUpdate: (c: ClientProfile) => void
   onClose: () => void
+  onShare: (snapshot: AssetPeriodSnapshot) => void
 }
 
 function fmtWan(n: number) {
@@ -27,7 +28,7 @@ function today() {
 
 type DraftPrices = Record<string, { unitPrice: string; amount: string }>
 
-export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose }: Props) {
+export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose, onShare }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -300,6 +301,19 @@ export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose
                     style={{ fontSize: 11, color: 'var(--color-text-muted)', background: 'none', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '2px 8px', cursor: 'pointer' }}
                   >
                     {isExpanded ? '收合' : '詳情'}
+                  </button>
+                  <button
+                    onClick={() => onShare(s)}
+                    style={{
+                      fontSize: 11, fontWeight: 600, padding: '2px 8px',
+                      border: `1px solid ${s.shareId ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                      borderRadius: 'var(--radius-sm)',
+                      background: s.shareId ? 'rgba(37,99,235,0.06)' : 'none',
+                      color: s.shareId ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {s.shareId ? '已分享' : '分享'}
                   </button>
                   {!isConfirming ? (
                     <button
