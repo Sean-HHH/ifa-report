@@ -1,17 +1,15 @@
 import { useMemo } from 'react'
-import { Line } from 'react-chartjs-2'
 import {
-  Chart as ChartJS, CategoryScale, LinearScale, PointElement,
-  LineElement, Title, Tooltip, Legend, Filler,
-} from 'chart.js'
+  LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend,
+  ReferenceDot, ResponsiveContainer,
+} from 'recharts'
 import type { ClientProfile } from '../../types/client'
 import { calcAssetGrowth, convertCurrency, fmtAmount, fmtPct, netWorth } from '../../utils/calculations'
 import { RISK_RETURN, calcCurrentAge } from '../../types/client'
 import type { FxRates } from '../fx/exchangeRate'
 import { StatCard } from '../../shared/StatCard'
 import { SectionTitle } from '../../shared/SectionTitle'
-
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
+import { ChartTooltip, CHART_TICK_STYLE, CHART_GRID_COLOR } from '../../shared/chartUtils'
 
 export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { client: ClientProfile; rates: FxRates; reportCurrency: string }) {
   const data = useMemo(() => calcAssetGrowth(client), [client])
@@ -22,85 +20,13 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
 
   const warnings = useMemo(() => data.filter(d => d.liquidityWarning), [data])
 
-  const labels = data.map(d => `${d.year} / ${d.age}歲`)
-  const contributed = data.map(d => nw + d.contributed)
-
-  // 警示年份在圖上打紅點（基準情境線上）
-  const warningPoints = data.map(d => d.liquidityWarning ? d.base : NaN)
-
-  const chartData = {
-    labels,
-    datasets: [
-      {
-        label: '積極情境',
-        data: data.map(d => d.aggressive),
-        borderColor: '#10b981',
-        backgroundColor: 'rgba(16,185,129,0.05)',
-        borderWidth: 2,
-        tension: 0.3,
-        fill: false,
-      },
-      {
-        label: '基準情境',
-        data: data.map(d => d.base),
-        borderColor: '#3b82f6',
-        backgroundColor: 'rgba(59,130,246,0.08)',
-        borderWidth: 2.5,
-        tension: 0.3,
-        fill: '-1',
-      },
-      {
-        label: '保守情境',
-        data: data.map(d => d.conservative),
-        borderColor: '#f59e0b',
-        backgroundColor: 'rgba(245,158,11,0.05)',
-        borderWidth: 2,
-        tension: 0.3,
-        fill: false,
-      },
-      {
-        label: '累積本金',
-        data: contributed,
-        borderColor: '#cbd5e1',
-        backgroundColor: 'rgba(203,213,225,0.15)',
-        borderWidth: 1.5,
-        borderDash: [5, 5],
-        tension: 0.3,
-        fill: 'origin',
-      },
-      ...(warnings.length > 0 ? [{
-        label: '流動性警示',
-        data: warningPoints,
-        borderColor: 'transparent',
-        backgroundColor: '#ef4444',
-        borderWidth: 0,
-        pointRadius: 7,
-        pointHoverRadius: 9,
-        tension: 0,
-        fill: false,
-        showLine: false,
-      }] : []),
-    ],
-  }
-
-  const options = {
-    responsive: true,
-    interaction: { mode: 'index' as const, intersect: false },
-    plugins: {
-      legend: { position: 'top' as const, labels: { font: { size: 11 } } },
-      tooltip: {
-        callbacks: {
-          label: (ctx: { dataset: { label?: string }, parsed: { y: number } }) =>
-            `${ctx.dataset.label}: ${disp(ctx.parsed.y, true)}`,
-        },
-      },
-    },
-    scales: {
-      y: {
-        ticks: { callback: (v: number | string) => disp(Number(v), true) },
-      },
-    },
-  }
+  const lineData = data.map(d => ({
+    label: `${d.year}/${d.age}歲`,
+    積極情境: d.aggressive,
+    基準情境: d.base,
+    保守情境: d.conservative,
+    累積本金: nw + d.contributed,
+  }))
 
   const last = data[data.length - 1]
 
@@ -115,7 +41,30 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
       </div>
 
       <div className="h-80">
-        <Line data={chartData} options={options as never} />
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={lineData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
+            <XAxis dataKey="label" tick={CHART_TICK_STYLE} interval="preserveStartEnd" />
+            <YAxis tickFormatter={v => disp(Number(v), true)} tick={CHART_TICK_STYLE} width={72} />
+            <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
+            <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
+            <Line type="monotone" dataKey="積極情境" stroke="#10b981" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="基準情境" stroke="#3b82f6" strokeWidth={2.5} dot={false} />
+            <Line type="monotone" dataKey="保守情境" stroke="#f59e0b" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="累積本金" stroke="#cbd5e1" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+            {warnings.map(w => (
+              <ReferenceDot
+                key={w.year}
+                x={`${w.year}/${w.age}歲`}
+                y={w.base}
+                r={6}
+                fill="#ef4444"
+                stroke="#fff"
+                strokeWidth={2}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-sm">
@@ -144,10 +93,9 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100">
-                  <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3">名稱</th>
-                  <th className="text-right pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-16">年份</th>
-                  <th className="text-right pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-24">金額</th>
-                  <th className="text-right pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide w-20">狀態</th>
+                  <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">名稱</th>
+                  <th className="text-right pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide w-16">年份</th>
+                  <th className="text-right pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide w-28">金額</th>
                 </tr>
               </thead>
               <tbody>
@@ -156,18 +104,17 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
                   const isWarning = yr?.liquidityWarning ?? false
                   return (
                     <tr key={i} className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${isWarning ? 'bg-red-50/40' : ''}`}>
-                      <td className="py-2 pr-3 text-slate-700 flex items-center gap-1.5">
-                        {isWarning && <span className="text-red-500 font-bold text-xs shrink-0">⚠</span>}
-                        {e.label}
+                      <td className="py-2.5 pr-4">
+                        <div className="flex items-center gap-1.5">
+                          {isWarning && <span className="text-red-500 text-xs shrink-0">⚠</span>}
+                          <span className="font-medium text-slate-700">{e.label}</span>
+                        </div>
+                        {isWarning && (
+                          <div className="text-xs text-red-500 mt-0.5">流動性不足警示</div>
+                        )}
                       </td>
-                      <td className="py-2 pr-3 text-right text-slate-500">{e.year}</td>
-                      <td className="py-2 pr-3 text-right font-medium text-red-600">−{disp(e.amount, true)}</td>
-                      <td className="py-2 text-right">
-                        {isWarning
-                          ? <span className="text-xs bg-red-100 text-red-600 border border-red-200 px-1.5 py-0.5 rounded">流動性警示</span>
-                          : <span className="text-xs text-slate-400">正常</span>
-                        }
-                      </td>
+                      <td className="py-2.5 text-right text-slate-500 align-top">{e.year}</td>
+                      <td className="py-2.5 text-right font-medium text-red-600 align-top">−{disp(e.amount, true)}</td>
                     </tr>
                   )
                 })}

@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Pie } from 'react-chartjs-2'
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import type { AssetPeriodSnapshot, ClientProfile, InvestmentCategory, InvestmentItem, LedgerEntry } from '../../types/client'
 import {
   INVESTMENT_CATEGORY_LABELS, ASSET_CURRENCY_LABELS, ASSET_PURPOSE_LABELS,
@@ -15,17 +14,11 @@ import { StatCard } from '../../shared/StatCard'
 import { NoteTag } from '../../shared/NoteTag'
 import { EmptyState } from '../../shared/EmptyState'
 import { SectionTitle } from '../../shared/SectionTitle'
-
-ChartJS.register(ArcElement, Tooltip, Legend)
+import { ChartTooltip } from '../../shared/chartUtils'
 
 const CAT_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#84cc16', '#f43f5e', '#a78bfa']
 const CUR_COLORS = ['#0ea5e9', '#f97316', '#ec4899', '#14b8a6', '#8b5cf6', '#eab308', '#64748b', '#22c55e']
 const PUR_COLORS = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b']
-
-const PIE_OPTS = {
-  responsive: true,
-  plugins: { legend: { position: 'bottom' as const, labels: { font: { size: 10 }, padding: 6 } } },
-}
 
 interface FxProps { rates: FxRates; reportCurrency: string }
 
@@ -41,20 +34,18 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
   const dispItem = (amount: number, currency: string) =>
     fmtAmount(convertCurrency(amount, currency, reportCurrency, rates), reportCurrency, true)
 
-  const catPie = {
-    labels: (Object.keys(alloc.byCategory) as InvestmentCategory[]).map(k => INVESTMENT_CATEGORY_LABELS[k]),
-    datasets: [{ data: Object.values(alloc.byCategory).map(v => v.amount), backgroundColor: CAT_COLORS, borderWidth: 2, borderColor: '#fff' }],
-  }
-  const curKeys = Object.keys(alloc.byCurrency)
-  const curPie = {
-    labels: curKeys.map(k => ASSET_CURRENCY_LABELS[k as keyof typeof ASSET_CURRENCY_LABELS] ?? k),
-    datasets: [{ data: curKeys.map(k => alloc.byCurrency[k].amount), backgroundColor: CUR_COLORS, borderWidth: 2, borderColor: '#fff' }],
-  }
-  const purKeys = Object.keys(alloc.byPurpose)
-  const purPie = {
-    labels: purKeys.map(k => ASSET_PURPOSE_LABELS[k as keyof typeof ASSET_PURPOSE_LABELS] ?? k),
-    datasets: [{ data: purKeys.map(k => alloc.byPurpose[k].amount), backgroundColor: PUR_COLORS, borderWidth: 2, borderColor: '#fff' }],
-  }
+  const catPieData = (Object.keys(alloc.byCategory) as InvestmentCategory[]).map(k => ({
+    name: INVESTMENT_CATEGORY_LABELS[k],
+    value: alloc.byCategory[k]?.amount ?? 0,
+  }))
+  const curPieData = Object.keys(alloc.byCurrency).map(k => ({
+    name: ASSET_CURRENCY_LABELS[k as keyof typeof ASSET_CURRENCY_LABELS] ?? k,
+    value: alloc.byCurrency[k]?.amount ?? 0,
+  }))
+  const purPieData = Object.keys(alloc.byPurpose).map(k => ({
+    name: ASSET_PURPOSE_LABELS[k as keyof typeof ASSET_PURPOSE_LABELS] ?? k,
+    value: alloc.byPurpose[k]?.amount ?? 0,
+  }))
 
   const longTermLiab = client.liabilityItems.filter(l => l.type === 'long_term')
   const currentLiab = client.liabilityItems.filter(l => l.type === 'current')
@@ -88,18 +79,28 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
         <div>
           <SectionTitle>資產分布 · 總計 {disp(totalInv, true)}</SectionTitle>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
-              <div className="text-xs text-center text-slate-500 mb-2 font-medium">資產類別</div>
-              <div className="h-44"><Pie data={catPie} options={PIE_OPTS} /></div>
-            </div>
-            <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
-              <div className="text-xs text-center text-slate-500 mb-2 font-medium">幣別分布</div>
-              <div className="h-44"><Pie data={curPie} options={PIE_OPTS} /></div>
-            </div>
-            <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
-              <div className="text-xs text-center text-slate-500 mb-2 font-medium">資產用途</div>
-              <div className="h-44"><Pie data={purPie} options={PIE_OPTS} /></div>
-            </div>
+            {([
+              { title: '資產類別', data: catPieData, colors: CAT_COLORS },
+              { title: '幣別分布', data: curPieData, colors: CUR_COLORS },
+              { title: '資產用途', data: purPieData, colors: PUR_COLORS },
+            ] as const).map(({ title, data, colors }) => (
+              <div key={title} className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
+                <div className="text-xs text-center text-slate-500 mb-1 font-medium">{title}</div>
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={[...data]} dataKey="value" nameKey="name" cx="50%" cy="42%" outerRadius={62} paddingAngle={2}>
+                        {data.map((_, i) => (
+                          <Cell key={i} fill={(colors as readonly string[])[i % colors.length]} stroke="#fff" strokeWidth={2} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
+                      <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 10, paddingTop: 2 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       ) : (
@@ -114,10 +115,7 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100">
-                  <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-20">類別</th>
-                  <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3">名稱</th>
-                  <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-24">機構／幣別</th>
-                  <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-10">備注</th>
+                  <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">名稱</th>
                   <th className="text-right pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">金額</th>
                 </tr>
               </thead>
@@ -126,39 +124,35 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
                   const TRADEABLE = new Set(['stock', 'fund', 'bond', 'crypto'])
                   return client.assetItems.map((item, i) => (
                     <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                      <td className="py-2 pr-3">
-                        <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-100 px-1.5 py-0.5 rounded">
-                          {INVESTMENT_CATEGORY_LABELS[item.category]}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3 text-slate-700 max-w-[160px]">
-                        <span className="truncate block">{item.label}</span>
-                        {TRADEABLE.has(item.category) && item.avgCost != null && item.units != null && (
-                          <span className="text-xs text-slate-400 block">
-                            均成本 {fmtAmount(item.avgCost, item.currency ?? 'TWD', true)} × {item.units}
+                      <td className="py-2.5 pr-4">
+                        <div className="font-medium text-slate-700">{item.label}</div>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                          <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-100 px-1.5 py-0.5 rounded">
+                            {INVESTMENT_CATEGORY_LABELS[item.category]}
                           </span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs bg-slate-100 text-slate-500 px-1 py-0.5 rounded">
+                            {item.currency ?? 'TWD'}
+                          </span>
                           {item.institution && (
-                            <span className="text-xs text-slate-500">{item.institution}</span>
+                            <span className="text-xs text-slate-400">{item.institution}</span>
                           )}
-                          {item.currency && item.currency !== 'TWD' && (
-                            <span className="text-xs bg-slate-100 text-slate-500 px-1 py-0.5 rounded w-fit">{item.currency}</span>
+                          {item.note && (
+                            <span className="text-xs text-slate-400">{item.note}</span>
                           )}
                         </div>
                       </td>
-                      <td className="py-2 pr-3"><NoteTag note={item.note} /></td>
-                      <td className="py-2 text-right font-medium text-slate-700 whitespace-nowrap">
-                        <div className="flex flex-col items-end">
-                          <span>{dispItem(item.amount, item.currency ?? 'TWD')}</span>
-                          {item.currency && item.currency !== 'TWD' && item.currency !== reportCurrency && (
-                            <span className="text-xs text-slate-400 font-normal">
-                              {fmtAmount(item.amount, item.currency, true)} 原幣
-                            </span>
-                          )}
-                        </div>
+                      <td className="py-2.5 text-right font-medium text-slate-700 whitespace-nowrap align-top">
+                        <div>{dispItem(item.amount, item.currency ?? 'TWD')}</div>
+                        {TRADEABLE.has(item.category) && item.avgCost != null && item.units != null && (
+                          <div className="text-xs text-slate-400 font-normal mt-0.5">
+                            {item.units} 股 × {fmtAmount(item.avgCost, item.currency ?? 'TWD', true)}
+                          </div>
+                        )}
+                        {item.currency && item.currency !== 'TWD' && item.currency !== reportCurrency && (
+                          <div className="text-xs text-slate-400 font-normal">
+                            {fmtAmount(item.amount, item.currency, true)} 原幣
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))

@@ -1,17 +1,16 @@
 import { useMemo } from 'react'
-import { Line, Bar } from 'react-chartjs-2'
 import {
-  Chart as ChartJS, CategoryScale, LinearScale, PointElement,
-  LineElement, BarElement, Title, Tooltip, Legend, Filler,
-} from 'chart.js'
+  BarChart, Bar, AreaChart, Area,
+  CartesianGrid, XAxis, YAxis, Tooltip, Cell,
+  ResponsiveContainer,
+} from 'recharts'
 import type { ClientProfile } from '../../types/client'
 import { RISK_RETURN } from '../../types/client'
 import { calcRetirement, convertCurrency, fmtAmount, fmtPct } from '../../utils/calculations'
 import type { FxRates } from '../fx/exchangeRate'
 import { StatCard } from '../../shared/StatCard'
 import { SectionTitle } from '../../shared/SectionTitle'
-
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler)
+import { ChartTooltip, CHART_TICK_STYLE, CHART_GRID_COLOR } from '../../shared/chartUtils'
 
 export function RetirementReport({ client, rates, reportCurrency }: { client: ClientProfile; rates: FxRates; reportCurrency: string }) {
   const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, rates)
@@ -19,34 +18,18 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
   const r = useMemo(() => calcRetirement(client), [client])
   const isOnTrack = r.gap <= 0
 
-  const gapData = {
-    labels: ['目標退休資產', '可提領資產'],
-    datasets: [{
-      label: '金額',
-      data: [r.targetAsset, r.projectedUsableBase],
-      backgroundColor: ['#ef4444', r.projectedUsableBase >= r.targetAsset ? '#10b981' : '#3b82f6'],
-      borderRadius: 8,
-    }],
-  }
+  const gapBarData = [
+    { name: '目標退休資產', value: r.targetAsset, fill: '#ef4444' },
+    { name: '可提領資產', value: r.projectedUsableBase, fill: r.projectedUsableBase >= r.targetAsset ? '#10b981' : '#3b82f6' },
+  ]
 
-  const withdrawLabels = r.withdrawalYears.map(d => `${d.age}歲`)
   const lastBase = r.withdrawalYears[r.withdrawalYears.length - 1]?.liquidBase ?? 0
-  const withdrawData = {
-    labels: withdrawLabels,
-    datasets: [{
-      label: '流動資產',
-      data: r.withdrawalYears.map(d => Math.max(d.liquidBase, 0)),
-      borderColor: lastBase <= 0 ? '#ef4444' : '#10b981',
-      backgroundColor: lastBase <= 0 ? 'rgba(239,68,68,0.06)' : 'rgba(16,185,129,0.08)',
-      borderWidth: 2,
-      tension: 0.3,
-      fill: 'origin',
-    }],
-  }
-
-  const axisOpts = {
-    y: { ticks: { callback: (v: number | string) => disp(Number(v), true) } },
-  }
+  const withdrawLineData = r.withdrawalYears.map(d => ({
+    age: `${d.age}歲`,
+    流動資產: Math.max(d.liquidBase, 0),
+  }))
+  const withdrawLineColor = lastBase <= 0 ? '#ef4444' : '#10b981'
+  const withdrawFill = lastBase <= 0 ? 'rgba(239,68,68,0.06)' : 'rgba(16,185,129,0.08)'
 
   const depleted = r.withdrawalYears.findIndex(d => d.liquidBase <= 0)
   const depletedAge = depleted >= 0 ? r.withdrawalYears[depleted].age : null
@@ -83,13 +66,33 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
         <div>
           <SectionTitle>目標 vs 預計退休資產</SectionTitle>
           <div className="h-56">
-            <Bar data={gapData} options={{ responsive: true, plugins: { legend: { display: false } }, scales: axisOpts as never }} />
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={gapBarData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} vertical={false} />
+                <XAxis dataKey="name" tick={CHART_TICK_STYLE} />
+                <YAxis tickFormatter={v => disp(Number(v), true)} tick={CHART_TICK_STYLE} width={72} />
+                <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
+                <Bar dataKey="value" name="金額" radius={[6, 6, 0, 0]} maxBarSize={64}>
+                  {gapBarData.map((entry, i) => (
+                    <Cell key={i} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
         <div>
           <SectionTitle>退休後提領模擬（至 {r.targetEndAge} 歲）</SectionTitle>
           <div className="h-56">
-            <Line data={withdrawData} options={{ responsive: true, plugins: { legend: { display: false } }, scales: axisOpts as never }} />
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={withdrawLineData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
+                <XAxis dataKey="age" tick={CHART_TICK_STYLE} interval="preserveStartEnd" />
+                <YAxis tickFormatter={v => disp(Number(v), true)} tick={CHART_TICK_STYLE} width={72} />
+                <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
+                <Area type="monotone" dataKey="流動資產" stroke={withdrawLineColor} fill={withdrawFill} strokeWidth={2} dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>

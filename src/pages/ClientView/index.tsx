@@ -2,12 +2,25 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import type { ClientProfile, VisibleModules } from '../../types/client'
+import type { FxRates } from '../../features/fx/exchangeRate'
 import { PasswordGate } from './PasswordGate'
 import { BasicInfoPage } from './BasicInfoPage'
-import { ChartsPage } from './ChartsPage'
+import { CashFlowReport } from '../../features/cashflow/CashFlowReport'
+import { AssetReport } from '../../features/assets/AssetReport'
+import { AssetGrowthReport } from '../../features/assets/AssetGrowthReport'
+import { RetirementReport } from '../../features/retirement/RetirementReport'
+
+const DEFAULT_RATES: FxRates = { TWD: 1 }
 
 type LoadState = 'loading' | 'not_found' | 'pending_password' | 'verified'
-type Tab = 'basic' | 'charts'
+type Tab = 'basic' | 'cashflow' | 'assets' | 'assetGrowth' | 'retirement'
+
+const CHART_TABS: { key: Exclude<Tab, 'basic'>; label: string; moduleKey: keyof VisibleModules }[] = [
+  { key: 'cashflow',    label: '收支分析', moduleKey: 'cashflow' },
+  { key: 'assets',     label: '資產組合', moduleKey: 'assets' },
+  { key: 'assetGrowth', label: '資產成長', moduleKey: 'assetGrowth' },
+  { key: 'retirement', label: '退休規劃', moduleKey: 'retirement' },
+]
 
 export function ClientViewPage() {
   const { id } = useParams<{ id: string }>()
@@ -29,9 +42,17 @@ export function ClientViewPage() {
           setLoadState('not_found')
           return
         }
+        const vm = data.visible_modules as VisibleModules
         setPasswordHash(data.password_hash)
         setSnapshotData(data.snapshot_data as ClientProfile)
-        setVisibleModules(data.visible_modules as VisibleModules)
+        setVisibleModules(vm)
+        // Default to first available tab
+        if (vm.basicInfo) {
+          setActiveTab('basic')
+        } else {
+          const first = CHART_TABS.find(t => vm[t.moduleKey])
+          if (first) setActiveTab(first.key)
+        }
         setLoadState('pending_password')
       })
   }, [id])
@@ -63,17 +84,22 @@ export function ClientViewPage() {
     )
   }
 
-  const hasCharts = !!(visibleModules?.cashflow || visibleModules?.assets || visibleModules?.assetGrowth || visibleModules?.retirement)
+  // Build available tab list from visibleModules
+  const allTabs: { key: Tab; label: string }[] = []
+  if (visibleModules?.basicInfo) allTabs.push({ key: 'basic', label: '基本資料' })
+  for (const t of CHART_TABS) {
+    if (visibleModules?.[t.moduleKey]) allTabs.push({ key: t.key, label: t.label })
+  }
 
-  // verified
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg)', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', sans-serif" }}>
       <header style={{ background: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', padding: '14px 24px' }}>
         <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--color-text-primary)' }}>{snapshotData?.name ?? ''} 的財務規劃報告</div>
       </header>
-      {visibleModules?.basicInfo && hasCharts && (
+
+      {allTabs.length > 1 && (
         <nav style={{ background: 'var(--color-surface)', borderBottom: '1px solid var(--color-border)', display: 'flex', gap: 0 }}>
-          {([['basic', '基本資料'], ['charts', '圖表分析']] as [Tab, string][]).map(([key, label]) => (
+          {allTabs.map(({ key, label }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
@@ -81,14 +107,12 @@ export function ClientViewPage() {
                 padding: '10px 20px',
                 fontSize: 14,
                 fontWeight: activeTab === key ? 600 : 400,
-                color: activeTab === key ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                borderBottom: activeTab === key ? '2px solid var(--color-primary)' : '2px solid transparent',
+                color: activeTab === key ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
                 background: 'none',
                 border: 'none',
-                borderBottomStyle: 'solid',
-                borderBottomWidth: 2,
-                borderBottomColor: activeTab === key ? 'var(--color-primary)' : 'transparent',
+                borderBottom: activeTab === key ? '2px solid var(--color-lime)' : '2px solid transparent',
                 cursor: 'pointer',
+                transition: 'color 0.15s',
               }}
             >
               {label}
@@ -96,13 +120,27 @@ export function ClientViewPage() {
           ))}
         </nav>
       )}
+
       {snapshotData && visibleModules && (
         <>
-          {(activeTab === 'basic' || !hasCharts) && visibleModules.basicInfo && (
+          {activeTab === 'basic' && visibleModules.basicInfo && (
             <BasicInfoPage client={snapshotData} />
           )}
-          {(activeTab === 'charts' || !visibleModules.basicInfo) && hasCharts && (
-            <ChartsPage client={snapshotData} visibleModules={visibleModules} />
+          {activeTab !== 'basic' && (
+            <div style={{ padding: '24px 24px 48px' }}>
+              {activeTab === 'cashflow' && visibleModules.cashflow && (
+                <CashFlowReport client={snapshotData} rates={DEFAULT_RATES} reportCurrency="TWD" />
+              )}
+              {activeTab === 'assets' && visibleModules.assets && (
+                <AssetReport client={snapshotData} rates={DEFAULT_RATES} reportCurrency="TWD" />
+              )}
+              {activeTab === 'assetGrowth' && visibleModules.assetGrowth && (
+                <AssetGrowthReport client={snapshotData} rates={DEFAULT_RATES} reportCurrency="TWD" />
+              )}
+              {activeTab === 'retirement' && visibleModules.retirement && (
+                <RetirementReport client={snapshotData} rates={DEFAULT_RATES} reportCurrency="TWD" />
+              )}
+            </div>
           )}
         </>
       )}

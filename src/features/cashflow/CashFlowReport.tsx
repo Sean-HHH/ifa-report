@@ -1,20 +1,17 @@
 import { useMemo } from 'react'
-import { Bar, Line, Chart } from 'react-chartjs-2'
 import {
-  Chart as ChartJS, ArcElement, Tooltip, Legend,
-  CategoryScale, LinearScale, BarElement, Title,
-  PointElement, LineElement,
-} from 'chart.js'
+  BarChart, Bar, Cell, LineChart, Line, ComposedChart,
+  CartesianGrid, XAxis, YAxis, Tooltip, Legend, ReferenceLine,
+  ResponsiveContainer,
+} from 'recharts'
 import type { ClientProfile } from '../../types/client'
 import { INCOME_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '../../types/client'
 import type { IncomeType, ExpenseCategory } from '../../types/client'
 import { calcCashFlow, calcCashFlowProjection, calcMonthlyTimeline, convertCurrency, fmtAmount, fmtPct } from '../../utils/calculations'
 import type { FxRates } from '../fx/exchangeRate'
 import { StatCard } from '../../shared/StatCard'
-import { NoteTag } from '../../shared/NoteTag'
 import { SectionTitle } from '../../shared/SectionTitle'
-
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement)
+import { ChartTooltip, CHART_TICK_STYLE, CHART_GRID_COLOR } from '../../shared/chartUtils'
 
 const INCOME_TYPE_COLORS: Record<IncomeType, string> = {
   fixed: 'bg-blue-100 text-blue-700',
@@ -68,23 +65,11 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
     return '#f59e0b'                                        // 扣除項 — orange
   })
 
-  const barData = {
-    labels: waterfallLabels,
-    datasets: [{
-      label: '金額',
-      data: waterfallValues,
-      backgroundColor: waterfallColors,
-      borderRadius: 6,
-    }],
-  }
-
-  const barOpts = {
-    responsive: true,
-    plugins: { legend: { display: false } },
-    scales: {
-      y: { ticks: { callback: (v: number | string) => disp(Number(v), true) } },
-    },
-  }
+  const waterfallData = waterfallLabels.map((label, i) => ({
+    label,
+    value: waterfallValues[i],
+    color: waterfallColors[i],
+  }))
 
   return (
     <div className="report-page space-y-6 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
@@ -113,7 +98,20 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
       <div>
         <SectionTitle>逐層扣除：固定收入 → 真實現金流 → 可投資現金流</SectionTitle>
         <div className="h-64">
-          <Bar data={barData} options={barOpts as never} />
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={waterfallData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} vertical={false} />
+              <XAxis dataKey="label" tick={CHART_TICK_STYLE} />
+              <YAxis tickFormatter={v => disp(Number(v), true)} tick={CHART_TICK_STYLE} width={72} />
+              <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
+              <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1} />
+              <Bar dataKey="value" name="金額" radius={[4, 4, 0, 0]} maxBarSize={52}>
+                {waterfallData.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
@@ -162,42 +160,21 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
       <div>
         <SectionTitle>5年現金流趨勢（通膨 {fmtPct(client.globalInflationRate * 100)}）</SectionTitle>
         <div className="h-56 mb-4">
-          <Line
-            data={{
-              labels: projection.map(p => String(p.year)),
-              datasets: [
-                {
-                  label: '帳面',
-                  data: projection.map(p => p.net),
-                  borderColor: '#3b82f6',
-                  backgroundColor: 'rgba(59,130,246,0.08)',
-                  tension: 0.3,
-                  pointRadius: 3,
-                },
-                {
-                  label: '真實',
-                  data: projection.map(p => p.true_),
-                  borderColor: '#10b981',
-                  backgroundColor: 'rgba(16,185,129,0.08)',
-                  tension: 0.3,
-                  pointRadius: 3,
-                },
-                {
-                  label: '可投資',
-                  data: projection.map(p => p.investible),
-                  borderColor: '#8b5cf6',
-                  backgroundColor: 'rgba(139,92,246,0.08)',
-                  tension: 0.3,
-                  pointRadius: 3,
-                },
-              ],
-            }}
-            options={{
-              responsive: true,
-              plugins: { legend: { position: 'top', labels: { font: { size: 11 } } } },
-              scales: { y: { ticks: { callback: (v: number | string) => disp(Number(v), true) } } },
-            } as never}
-          />
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={projection.map(p => ({ year: String(p.year), 帳面: p.net, 真實: p.true_, 可投資: p.investible }))}
+              margin={{ top: 4, right: 8, bottom: 0, left: 8 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
+              <XAxis dataKey="year" tick={CHART_TICK_STYLE} />
+              <YAxis tickFormatter={v => disp(Number(v), true)} tick={CHART_TICK_STYLE} width={72} />
+              <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
+              <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
+              <Line type="monotone" dataKey="帳面" stroke="#3b82f6" dot={{ r: 3 }} strokeWidth={2} />
+              <Line type="monotone" dataKey="真實" stroke="#10b981" dot={{ r: 3 }} strokeWidth={2} />
+              <Line type="monotone" dataKey="可投資" stroke="#8b5cf6" dot={{ r: 3 }} strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
         {/* 年度表格 */}
         <div className="overflow-x-auto">
@@ -233,30 +210,28 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-16">類型</th>
-                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3">名稱</th>
-                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-20">成長率</th>
-                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-10">備注</th>
+                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">名稱</th>
                 <th className="text-right pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">金額</th>
               </tr>
             </thead>
             <tbody>
               {client.incomes.map((item, i) => (
                 <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                  <td className="py-2 pr-3">
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${INCOME_TYPE_COLORS[item.type]}`}>
-                      {INCOME_TYPE_LABELS[item.type]}
-                    </span>
+                  <td className="py-2.5 pr-4">
+                    <div className="font-medium text-slate-700">{item.label}</div>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${INCOME_TYPE_COLORS[item.type]}`}>
+                        {INCOME_TYPE_LABELS[item.type]}
+                      </span>
+                      {item.growthRate !== undefined && (
+                        <span className="text-xs text-emerald-600">+{fmtPct(item.growthRate * 100)}/年</span>
+                      )}
+                      {item.note && (
+                        <span className="text-xs text-slate-400">{item.note}</span>
+                      )}
+                    </div>
                   </td>
-                  <td className="py-2 pr-3 text-slate-700">{item.label}</td>
-                  <td className="py-2 pr-3">
-                    {item.growthRate !== undefined
-                      ? <span className="text-xs text-emerald-600">+{fmtPct(item.growthRate * 100)}/年</span>
-                      : <span className="text-slate-300 text-xs">—</span>
-                    }
-                  </td>
-                  <td className="py-2 pr-3"><NoteTag note={item.note} /></td>
-                  <td className="py-2 text-right font-medium text-slate-700 whitespace-nowrap">
+                  <td className="py-2.5 text-right font-medium text-slate-700 whitespace-nowrap align-top">
                     {disp(item.amount, true)}
                     {item.frequency && item.frequency !== 'monthly' && (
                       <span className="text-xs text-slate-400 font-normal ml-1">
@@ -278,23 +253,25 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100">
-                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-20">類別</th>
-                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3">名稱</th>
-                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-10">備注</th>
+                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">名稱</th>
                 <th className="text-right pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">金額</th>
               </tr>
             </thead>
             <tbody>
               {client.expenses.map((e, i) => (
                 <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                  <td className="py-2 pr-3">
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${EXPENSE_CAT_COLORS[e.category]}`}>
-                      {EXPENSE_CATEGORY_LABELS[e.category]}
-                    </span>
+                  <td className="py-2.5 pr-4">
+                    <div className="font-medium text-slate-700">{e.label}</div>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${EXPENSE_CAT_COLORS[e.category]}`}>
+                        {EXPENSE_CATEGORY_LABELS[e.category]}
+                      </span>
+                      {e.note && (
+                        <span className="text-xs text-slate-400">{e.note}</span>
+                      )}
+                    </div>
                   </td>
-                  <td className="py-2 pr-3 text-slate-600">{e.label}</td>
-                  <td className="py-2 pr-3"><NoteTag note={e.note} /></td>
-                  <td className="py-2 text-right font-medium text-slate-700 whitespace-nowrap">
+                  <td className="py-2.5 text-right font-medium text-slate-700 whitespace-nowrap align-top">
                     {disp(e.amount, true)}
                     {e.frequency && e.frequency !== 'monthly' && (
                       <span className="text-xs text-slate-400 font-normal ml-1">
@@ -347,55 +324,32 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
 
         {/* 12個月混合圖表 */}
         <div className="h-64">
-          <Chart
-            type="bar"
-            data={{
-              labels: timeline.months.map(m => `${m.month}月`),
-              datasets: [
-                {
-                  type: 'bar' as const,
-                  label: '月收入',
-                  data: timeline.months.map(m => m.income),
-                  backgroundColor: 'rgba(16,185,129,0.65)',
-                  borderRadius: 4,
-                  order: 2,
-                },
-                {
-                  type: 'bar' as const,
-                  label: '月支出',
-                  data: timeline.months.map(m => m.expense),
-                  backgroundColor: timeline.months.map(m =>
-                    m.isCrunch ? 'rgba(239,68,68,0.8)' : 'rgba(251,191,36,0.65)'
-                  ),
-                  borderRadius: 4,
-                  order: 2,
-                },
-                {
-                  type: 'line' as const,
-                  label: '淨現金流',
-                  data: timeline.months.map(m => m.net),
-                  borderColor: '#3b82f6',
-                  backgroundColor: 'rgba(59,130,246,0.08)',
-                  tension: 0.3,
-                  pointRadius: 4,
-                  pointBackgroundColor: timeline.months.map(m => m.isCrunch ? '#ef4444' : '#3b82f6'),
-                  borderWidth: 2,
-                  fill: false,
-                  order: 1,
-                },
-              ],
-            } as never}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: { position: 'top', labels: { font: { size: 11 } } },
-              },
-              scales: {
-                y: { ticks: { callback: (v: number | string) => disp(Number(v), true) } },
-              },
-            } as never}
-          />
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart
+              data={timeline.months.map(m => ({
+                month: `${m.month}月`,
+                月收入: m.income,
+                月支出: m.expense,
+                淨現金流: m.net,
+                isCrunch: m.isCrunch,
+              }))}
+              margin={{ top: 4, right: 8, bottom: 0, left: 8 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
+              <XAxis dataKey="month" tick={CHART_TICK_STYLE} />
+              <YAxis tickFormatter={v => disp(Number(v), true)} tick={CHART_TICK_STYLE} width={72} />
+              <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
+              <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
+              <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1} />
+              <Bar dataKey="月收入" fill="rgba(16,185,129,0.7)" radius={[3, 3, 0, 0]} maxBarSize={20} />
+              <Bar dataKey="月支出" radius={[3, 3, 0, 0]} maxBarSize={20}>
+                {timeline.months.map((m, i) => (
+                  <Cell key={i} fill={m.isCrunch ? 'rgba(239,68,68,0.8)' : 'rgba(251,191,36,0.7)'} />
+                ))}
+              </Bar>
+              <Line type="monotone" dataKey="淨現金流" stroke="#3b82f6" dot={{ r: 3 }} strokeWidth={2} />
+            </ComposedChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>
