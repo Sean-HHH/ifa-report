@@ -364,7 +364,7 @@ function Layer2({ client, rates, reportCurrency }: { client: ClientProfile; rate
   const bTotal = useMemo(() => {
     if (snapshots.length === 0) return 0
     if (snapshots.length === 1) return totalAssetsConverted(client, rates, reportCurrency)
-    return toSnap?.openingAssets ?? 0
+    return toSnap?.closingAssets ?? totalAssetsConverted(client, rates, reportCurrency)
   }, [snapshots, toSnap, client, rates, reportCurrency])
 
   const aBreakdown = useMemo(() => aItems ? calcCategoryBreakdown(aItems) : null, [aItems])
