@@ -12,6 +12,9 @@ import {
 } from '../../utils/calculations'
 import type { FxRates } from '../fx/exchangeRate'
 import { StatCard } from '../../shared/StatCard'
+import { NoteTag } from '../../shared/NoteTag'
+import { EmptyState } from '../../shared/EmptyState'
+import { SectionTitle } from '../../shared/SectionTitle'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -25,37 +28,6 @@ const PIE_OPTS = {
 }
 
 interface FxProps { rates: FxRates; reportCurrency: string }
-
-function NoteTag({ note }: { note?: string }) {
-  const [show, setShow] = useState(false)
-  if (!note) return null
-  return (
-    <div className="relative inline-block">
-      <button onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}
-        className="text-xs bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded cursor-help inline-flex items-center gap-0.5">
-        <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-        備注
-      </button>
-      {show && (
-        <div className="absolute left-0 top-6 z-10 bg-slate-800 text-white text-xs rounded-lg px-3 py-2 w-56 shadow-lg whitespace-pre-wrap">
-          {note}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-sm font-semibold text-slate-700 mb-3">{children}</h3>
-}
-
-function EmptyHint({ text }: { text: string }) {
-  return (
-    <div className="border border-dashed border-slate-200 rounded-xl py-6 text-center text-xs text-slate-500">
-      {text}
-    </div>
-  )
-}
 
 // ── Layer 1: 資產現況 ─────────────────────────────────────────
 
@@ -131,7 +103,7 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
           </div>
         </div>
       ) : (
-        <EmptyHint text="尚未輸入資產資料" />
+        <EmptyState text="尚未輸入資產資料" />
       )}
 
       {/* 資產明細 */}
@@ -374,7 +346,7 @@ function Layer2({ client, rates, reportCurrency }: { client: ClientProfile; rate
   const bLabel = snapshots.length === 1 ? '目前' : (toSnap?.periodLabel ?? '')
 
   if (snapshots.length === 0) {
-    return <EmptyHint text="尚未建立快照 · 點選右上角「快照」按鈕開始記錄" />
+    return <EmptyState text="尚未建立快照 · 點選右上角「快照」按鈕開始記錄" />
   }
 
   const totalDelta   = bTotal - aTotal
@@ -522,7 +494,7 @@ function Layer3({ client, rates, reportCurrency }: { client: ClientProfile } & F
 
   if (!deviation.hasTargets) {
     return (
-      <EmptyHint text="尚未設定目標配置 · 請在「投資偏好」→「目標配置」設定各類別目標百分比" />
+      <EmptyState text="尚未設定目標配置 · 請在「投資偏好」→「目標配置」設定各類別目標百分比" />
     )
   }
 
