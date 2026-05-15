@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import type { ClientProfile, AssetPeriodSnapshot, InvestmentItem, InvestmentCategory } from '../../types/client'
-import { totalAssetsConverted } from '../../utils/calculations'
+import { totalAssetsConverted, convertCurrency } from '../../utils/calculations'
 import { calcPeriodPnL } from './calc'
 import type { FxRates } from '../fx/exchangeRate'
 import { LedgerPanel } from './LedgerPanel'
@@ -96,7 +96,7 @@ export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose
       return item
     })
 
-    const newTotal = updatedItems.reduce((s, i) => s + i.amount, 0)
+    const newTotal = updatedItems.reduce((s, i) => s + convertCurrency(i.amount, i.currency ?? 'TWD', reportCurrency, rates), 0)
     const snap: AssetPeriodSnapshot = {
       id: crypto.randomUUID(),
       periodLabel: draftLabel || draftDate,
@@ -124,13 +124,15 @@ export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose
   // Compute draft total for the create form preview
   const draftTotal = client.assetItems.reduce((s, item) => {
     const d = draftPrices[item.id]
-    if (!d) return s + item.amount
+    let raw: number
     if (TRADEABLE.has(item.category) && item.units != null && item.units > 0) {
-      const p = parseFloat(d.unitPrice)
-      return s + (isNaN(p) ? item.amount : item.units * p)
+      const p = d ? parseFloat(d.unitPrice) : NaN
+      raw = isNaN(p) ? item.amount : item.units * p
+    } else {
+      const a = d ? parseFloat(d.amount) : NaN
+      raw = isNaN(a) ? item.amount : a
     }
-    const a = parseFloat(d.amount)
-    return s + (isNaN(a) ? item.amount : a)
+    return s + convertCurrency(raw, item.currency ?? 'TWD', reportCurrency, rates)
   }, 0)
 
   return (
@@ -393,7 +395,7 @@ export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose
                         })
                       }}
                       onCommit={(updatedAssetItems, updatedMajorExpenses) => {
-                        const actualClosing = updatedAssetItems.reduce((sum, a) => sum + a.amount, 0)
+                        const actualClosing = updatedAssetItems.reduce((sum, a) => sum + convertCurrency(a.amount, a.currency ?? 'TWD', reportCurrency, rates), 0)
                         onUpdate({
                           ...client,
                           assetItems: updatedAssetItems,
