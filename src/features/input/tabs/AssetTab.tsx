@@ -13,7 +13,9 @@ interface Props {
 }
 
 export function AssetTab({ c, patch, rates }: Props) {
-  const totalAssetsRaw = c.assetItems.reduce((s, i) => s + i.amount, 0)
+  const totalAssetsRaw = rates
+    ? c.assetItems.reduce((s, i) => s + convertCurrency(i.amount, i.currency ?? 'TWD', 'TWD', rates), 0)
+    : c.assetItems.reduce((s, i) => s + i.amount, 0)
 
   const update = (i: number, p: Partial<InvestmentItem>) =>
     patch({ assetItems: c.assetItems.map((item, idx) => idx === i ? { ...item, ...p } : item) })
