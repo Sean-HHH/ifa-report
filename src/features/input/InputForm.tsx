@@ -39,7 +39,10 @@ export function InputForm({ client: c, onChange, rates }: Props) {
       {/* Name */}
       <div className="px-6 pt-5 pb-4 border-b border-slate-100">
         <input
-          className="text-xl font-semibold text-slate-800 bg-transparent border-b-2 border-transparent focus:border-blue-300 outline-none w-full pb-1 transition-colors"
+          className="text-xl font-semibold text-slate-800 bg-transparent border-b-2 border-transparent outline-none w-full pb-1 transition-colors"
+          style={{ '--tw-border-opacity': '1' } as React.CSSProperties}
+          onFocus={e => (e.currentTarget.style.borderColor = 'var(--color-lime)')}
+          onBlur={e => (e.currentTarget.style.borderColor = 'transparent')}
           value={c.name}
           onChange={e => patch({ name: e.target.value })}
           placeholder="客戶姓名"
@@ -50,8 +53,9 @@ export function InputForm({ client: c, onChange, rates }: Props) {
       <div className="flex border-b border-slate-100">
         {TABS.map(t => (
           <button key={t} onClick={() => setTab(t)}
+            style={tab === t ? { borderBottom: '2px solid var(--color-lime)', color: 'var(--color-text-primary)', fontWeight: 600 } : {}}
             className={`px-4 py-2.5 text-xs font-medium transition-colors whitespace-nowrap ${
-              tab === t ? 'border-b-2 border-blue-800 text-blue-800' : 'text-slate-500 hover:text-slate-700'
+              tab === t ? '' : 'text-slate-500 hover:text-slate-700'
             }`}>
             {TAB_LABELS[t]}
           </button>
