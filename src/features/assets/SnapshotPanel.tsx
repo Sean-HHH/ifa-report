@@ -3,7 +3,7 @@ import type { ClientProfile, AssetPeriodSnapshot, InvestmentItem, InvestmentCate
 import { totalAssetsConverted, convertCurrency } from '../../utils/calculations'
 import { calcPeriodPnL } from './calc'
 import type { FxRates } from '../fx/exchangeRate'
-import { LedgerPanel } from './LedgerPanel'
+// import { LedgerPanel } from './LedgerPanel'  // hidden; see DECISIONS.md
 
 const TRADEABLE = new Set<InvestmentCategory>(['stock', 'fund', 'bond', 'crypto'])
 
@@ -376,38 +376,7 @@ export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose
                     )}
                     {/* Label edit */}
                     <SnapField label="期間標籤" value={s.periodLabel} onChange={v => patchSnapshot(s.id, { periodLabel: v })} isText />
-                    {/* Transactions */}
-                    <LedgerPanel
-                      entries={client.ledgerEntries.filter(e => e.snapshotId === s.id)}
-                      assetItems={client.assetItems}
-                      majorExpenses={client.majorExpenses}
-                      snapshotId={s.id}
-                      openingAssets={s.openingAssets}
-                      closingAssets={s.closingAssets}
-                      onUpdate={updatedEntries => {
-                        const otherEntries = client.ledgerEntries.filter(e => e.snapshotId !== s.id)
-                        onUpdate({
-                          ...client,
-                          ledgerEntries: [...otherEntries, ...updatedEntries],
-                          assetSnapshots: snapshots.map(snap =>
-                            snap.id === s.id ? { ...snap, ledgerEntries: updatedEntries } : snap
-                          ),
-                        })
-                      }}
-                      onCommit={(updatedAssetItems, updatedMajorExpenses) => {
-                        const actualClosing = updatedAssetItems.reduce((sum, a) => sum + convertCurrency(a.amount, a.currency ?? 'TWD', reportCurrency, rates), 0)
-                        onUpdate({
-                          ...client,
-                          assetItems: updatedAssetItems,
-                          majorExpenses: updatedMajorExpenses,
-                          assetSnapshots: snapshots.map(snap =>
-                            snap.id === s.id
-                              ? { ...snap, closingAssets: actualClosing, openingAssetItems: snap.assetItems }
-                              : snap
-                          ),
-                        })
-                      }}
-                    />
+                    {/* Transactions — hidden; workflow is update-input-then-snapshot, not ledger-driven */}
                   </div>
                 )}
               </div>

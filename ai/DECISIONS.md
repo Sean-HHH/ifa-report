@@ -40,6 +40,7 @@
 | 分享密碼 | hash 存 Supabase，不存明文 | 基本安全性，IFA 不需要登入系統 |
 | 資產變動追蹤（Ledger） | LedgerEntry → LedgerLine 雙層結構；交易記錄存於 ClientProfile.ledgerEntries（全局），以 snapshotId 關聯期間快照；確認後套用至 assetItems；差額自動建 MajorExpense；avgCost 由 ledger 自動維護（加權平均成本），unitPrice 仍為手填市價 | 交易記錄不依附快照，刪快照不遺失歷史；avgCost 與 unitPrice 分離，成本追蹤與市值評估互不干擾 |
 | 快照 UI 改名 | 「快照」→「期間記錄」（UI 層）；型別名 `AssetPeriodSnapshot` 保留不動 | 語意更精確；型別名不動避免大量 import 更新 |
+| Ledger UI 隱藏 | `LedgerPanel` 元件保留但在 SnapshotPanel 中隱藏（不渲染）；資料結構（`ledgerEntries`、`LedgerEntry`、`LedgerLine`）完整保留 | 主要工作流程已改為「更新 Input → 建立快照」，逐筆交易記錄對目前 IFA 使用情境過重；隱藏而非刪除，保留日後重啟的彈性 |
 | 分享連結綁定 | 一快照一連結；`AssetPeriodSnapshot.shareId` 存 Supabase row UUID；upsert（修改已分享）/ delete（撤銷）模式 | 避免同一快照出現多條分享連結；分享狀態對齊快照版本 |
 | 資產成長雙池模型 | 流動資產（現金/股票/基金/債券/加密/其他）與不動產分池獨立成長；不動產使用 `realEstateReturnRate`（預設同通膨率）；流動池每年扣除重大支出後複利 | 不動產難以即時變現，與流動資產混算會高估流動性；重大支出衝擊只從流動池扣 |
 | 不動產不計入退休提領缺口 | `projectedUsableBase = projectedLiquidBase + lumpSum`；gap 比較與退休後模擬均以此為基準；不動產另列顯示 | 不動產通常為自住，退休時不一定能提領；高估可用資產對客戶有風險 |
