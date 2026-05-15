@@ -110,46 +110,61 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
       {client.assetItems.length > 0 && (
         <div>
           <SectionTitle>資產明細</SectionTitle>
-          <div className="space-y-1">
-            {(() => {
-              const TRADEABLE = new Set(['stock', 'fund', 'bond', 'crypto'])
-              return client.assetItems.map((item, i) => (
-                <div key={i} className="flex items-center justify-between py-2 px-3 bg-emerald-50 rounded-lg text-sm">
-                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                    <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded shrink-0">
-                      {INVESTMENT_CATEGORY_LABELS[item.category]}
-                    </span>
-                    {item.currency && item.currency !== 'TWD' && (
-                      <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded shrink-0">
-                        {item.currency}
-                      </span>
-                    )}
-                    {item.institution && (
-                      <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded shrink-0">
-                        {item.institution}
-                      </span>
-                    )}
-                    <span className="text-slate-700 truncate">{item.label}</span>
-                    <NoteTag note={item.note} />
-                  </div>
-                  <div className="flex flex-col items-end ml-2 shrink-0">
-                    <span className="font-medium text-emerald-700">
-                      {dispItem(item.amount, item.currency ?? 'TWD')}
-                    </span>
-                    {item.currency && item.currency !== 'TWD' && item.currency !== reportCurrency && (
-                      <span className="text-xs text-slate-500">
-                        {fmtAmount(item.amount, item.currency, true)} 原幣
-                      </span>
-                    )}
-                    {TRADEABLE.has(item.category) && item.avgCost != null && item.units != null && (
-                      <span className="text-xs text-slate-400">
-                        均成本 {fmtAmount(item.avgCost, item.currency ?? 'TWD', true)} × {item.units}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))
-            })()}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-20">類別</th>
+                  <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3">名稱</th>
+                  <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-24">機構／幣別</th>
+                  <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-10">備注</th>
+                  <th className="text-right pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">金額</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const TRADEABLE = new Set(['stock', 'fund', 'bond', 'crypto'])
+                  return client.assetItems.map((item, i) => (
+                    <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                      <td className="py-2 pr-3">
+                        <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-100 px-1.5 py-0.5 rounded">
+                          {INVESTMENT_CATEGORY_LABELS[item.category]}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3 text-slate-700 max-w-[160px]">
+                        <span className="truncate block">{item.label}</span>
+                        {TRADEABLE.has(item.category) && item.avgCost != null && item.units != null && (
+                          <span className="text-xs text-slate-400 block">
+                            均成本 {fmtAmount(item.avgCost, item.currency ?? 'TWD', true)} × {item.units}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 pr-3">
+                        <div className="flex flex-col gap-0.5">
+                          {item.institution && (
+                            <span className="text-xs text-slate-500">{item.institution}</span>
+                          )}
+                          {item.currency && item.currency !== 'TWD' && (
+                            <span className="text-xs bg-slate-100 text-slate-500 px-1 py-0.5 rounded w-fit">{item.currency}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2 pr-3"><NoteTag note={item.note} /></td>
+                      <td className="py-2 text-right font-medium text-slate-700 whitespace-nowrap">
+                        <div className="flex flex-col items-end">
+                          <span>{dispItem(item.amount, item.currency ?? 'TWD')}</span>
+                          {item.currency && item.currency !== 'TWD' && item.currency !== reportCurrency && (
+                            <span className="text-xs text-slate-400 font-normal">
+                              {fmtAmount(item.amount, item.currency, true)} 原幣
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                })()}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

@@ -140,23 +140,39 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
       {client.majorExpenses.length > 0 && (
         <div>
           <SectionTitle>重大支出時程</SectionTitle>
-          <div className="space-y-1">
-            {client.majorExpenses.map((e, i) => {
-              const yr = data.find(d => d.year === e.year)
-              const isWarning = yr?.liquidityWarning ?? false
-              return (
-                <div key={i} className={`flex justify-between items-center py-2 px-3 rounded-lg text-sm ${isWarning ? 'bg-red-100 border border-red-200' : 'bg-red-50'}`}>
-                  <div className="flex items-center gap-2">
-                    {isWarning && <span className="text-red-500 font-bold text-xs">⚠</span>}
-                    <span className="text-red-700">{e.label}</span>
-                  </div>
-                  <div className="flex gap-3">
-                    <span className="text-red-500">{e.year} 年</span>
-                    <span className="font-medium text-red-700">-{disp(e.amount, true)}</span>
-                  </div>
-                </div>
-              )
-            })}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3">名稱</th>
+                  <th className="text-right pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-16">年份</th>
+                  <th className="text-right pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-24">金額</th>
+                  <th className="text-right pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide w-20">狀態</th>
+                </tr>
+              </thead>
+              <tbody>
+                {client.majorExpenses.map((e, i) => {
+                  const yr = data.find(d => d.year === e.year)
+                  const isWarning = yr?.liquidityWarning ?? false
+                  return (
+                    <tr key={i} className={`border-b border-slate-50 hover:bg-slate-50/50 transition-colors ${isWarning ? 'bg-red-50/40' : ''}`}>
+                      <td className="py-2 pr-3 text-slate-700 flex items-center gap-1.5">
+                        {isWarning && <span className="text-red-500 font-bold text-xs shrink-0">⚠</span>}
+                        {e.label}
+                      </td>
+                      <td className="py-2 pr-3 text-right text-slate-500">{e.year}</td>
+                      <td className="py-2 pr-3 text-right font-medium text-red-600">−{disp(e.amount, true)}</td>
+                      <td className="py-2 text-right">
+                        {isWarning
+                          ? <span className="text-xs bg-red-100 text-red-600 border border-red-200 px-1.5 py-0.5 rounded">流動性警示</span>
+                          : <span className="text-xs text-slate-400">正常</span>
+                        }
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

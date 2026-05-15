@@ -229,57 +229,83 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
       {/* 收入明細 */}
       <div>
         <SectionTitle>收入明細</SectionTitle>
-        <div className="space-y-1">
-          {client.incomes.map((item, i) => (
-            <div key={i} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg text-sm border border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className={`text-xs px-1.5 py-0.5 rounded ${INCOME_TYPE_COLORS[item.type]}`}>
-                  {INCOME_TYPE_LABELS[item.type]}
-                </span>
-                <span className="text-slate-700">{item.label}</span>
-                {item.growthRate !== undefined && (
-                  <span className="text-xs text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                    +{fmtPct(item.growthRate * 100)}/年
-                  </span>
-                )}
-                <NoteTag note={item.note} />
-              </div>
-              <span className="font-medium text-slate-700">
-                {disp(item.amount, true)}
-                {item.frequency && item.frequency !== 'monthly' && (
-                  <span className="text-xs text-violet-500 font-normal ml-1">
-                    /{item.frequency === 'quarterly' ? '季' : '年'}
-                  </span>
-                )}
-              </span>
-            </div>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-16">類型</th>
+                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3">名稱</th>
+                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-20">成長率</th>
+                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-10">備注</th>
+                <th className="text-right pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">金額</th>
+              </tr>
+            </thead>
+            <tbody>
+              {client.incomes.map((item, i) => (
+                <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                  <td className="py-2 pr-3">
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${INCOME_TYPE_COLORS[item.type]}`}>
+                      {INCOME_TYPE_LABELS[item.type]}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-3 text-slate-700">{item.label}</td>
+                  <td className="py-2 pr-3">
+                    {item.growthRate !== undefined
+                      ? <span className="text-xs text-emerald-600">+{fmtPct(item.growthRate * 100)}/年</span>
+                      : <span className="text-slate-300 text-xs">—</span>
+                    }
+                  </td>
+                  <td className="py-2 pr-3"><NoteTag note={item.note} /></td>
+                  <td className="py-2 text-right font-medium text-slate-700 whitespace-nowrap">
+                    {disp(item.amount, true)}
+                    {item.frequency && item.frequency !== 'monthly' && (
+                      <span className="text-xs text-slate-400 font-normal ml-1">
+                        /{item.frequency === 'quarterly' ? '季' : '年'}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
       {/* 支出明細 */}
       <div>
         <SectionTitle>支出明細</SectionTitle>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {client.expenses.map((e, i) => (
-            <div key={i} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg text-sm">
-              <div className="flex items-center gap-2">
-                <span className={`text-xs px-1.5 py-0.5 rounded ${EXPENSE_CAT_COLORS[e.category]}`}>
-                  {EXPENSE_CATEGORY_LABELS[e.category]}
-                </span>
-                <span className="text-slate-600">{e.label}</span>
-                <NoteTag note={e.note} />
-              </div>
-              <span className="font-medium text-slate-700">
-                {disp(e.amount, true)}
-                {e.frequency && e.frequency !== 'monthly' && (
-                  <span className="text-xs text-orange-400 font-normal ml-1">
-                    /{e.frequency === 'quarterly' ? '季' : '年'}
-                  </span>
-                )}
-              </span>
-            </div>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-20">類別</th>
+                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3">名稱</th>
+                <th className="text-left pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide pr-3 w-10">備注</th>
+                <th className="text-right pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">金額</th>
+              </tr>
+            </thead>
+            <tbody>
+              {client.expenses.map((e, i) => (
+                <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                  <td className="py-2 pr-3">
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${EXPENSE_CAT_COLORS[e.category]}`}>
+                      {EXPENSE_CATEGORY_LABELS[e.category]}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-3 text-slate-600">{e.label}</td>
+                  <td className="py-2 pr-3"><NoteTag note={e.note} /></td>
+                  <td className="py-2 text-right font-medium text-slate-700 whitespace-nowrap">
+                    {disp(e.amount, true)}
+                    {e.frequency && e.frequency !== 'monthly' && (
+                      <span className="text-xs text-slate-400 font-normal ml-1">
+                        /{e.frequency === 'quarterly' ? '季' : '年'}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
