@@ -435,15 +435,15 @@ function Layer2({ client, rates, reportCurrency }: { client: ClientProfile; rate
         if (!activeSnap || activeSnap.closingAssets == null) return null
         const pnl = calcPeriodPnL(activeSnap, client.ledgerEntries)
         const returnColor = pnl.totalReturn >= 0 ? 'text-emerald-600' : 'text-red-500'
-        const gainColor = pnl.marketGain >= 0 ? 'text-emerald-600' : 'text-red-500'
+        const cards = [
+              ...(pnl.netContribution !== 0 ? [{ label: '淨投入', value: pnl.netContribution, signed: true }] : []),
+              ...(pnl.dividendIncome !== 0 ? [{ label: '配息收入', value: pnl.dividendIncome, signed: true }] : []),
+              ...(pnl.fees !== 0 ? [{ label: '費用', value: pnl.fees, signed: true }] : []),
+              { label: '淨資產變動', value: pnl.totalReturn, signed: true, primary: true },
+            ]
         return (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[
-              { label: '淨投入', value: pnl.netContribution, signed: true },
-              { label: '配息收入', value: pnl.dividendIncome, signed: true },
-              { label: '費用', value: pnl.fees, signed: true },
-              { label: '市場損益', value: pnl.marketGain, signed: true, primary: true },
-            ].map(({ label, value, signed, primary }) => {
+            {cards.map(({ label, value, signed, primary }) => {
               const c = !signed ? 'text-slate-700' : primary
                 ? (value >= 0 ? 'text-emerald-600' : 'text-red-500')
                 : (value >= 0 ? 'text-slate-700' : 'text-red-500')
@@ -457,14 +457,9 @@ function Layer2({ client, rates, reportCurrency }: { client: ClientProfile; rate
               )
             })}
             <div className="col-span-2 sm:col-span-4 flex items-center gap-2 text-xs text-slate-500 pl-1">
-              <span>期間報酬率：</span>
+              <span>期間變動率：</span>
               <span className={`font-semibold ${returnColor}`}>
                 {pnl.returnPct >= 0 ? '+' : ''}{pnl.returnPct.toFixed(2)}%
-              </span>
-              <span className="text-slate-300">·</span>
-              <span>市場損益：</span>
-              <span className={`font-semibold ${gainColor}`}>
-                {pnl.marketGain >= 0 ? '+' : ''}{fmtWan(pnl.marketGain)}
               </span>
             </div>
           </div>

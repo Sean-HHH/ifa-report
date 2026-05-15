@@ -361,16 +361,15 @@ export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose
                       }}>
                         <PnLPill label="期初" value={pnl.openingAssets} />
                         <PnLPill label="期末" value={pnl.closingAssets} />
-                        <PnLPill label="淨投入" value={pnl.netContribution} signed />
+                        {pnl.netContribution !== 0 && <PnLPill label="淨投入" value={pnl.netContribution} signed />}
                         {pnl.dividendIncome !== 0 && <PnLPill label="配息" value={pnl.dividendIncome} signed />}
                         {pnl.fees !== 0 && <PnLPill label="費用" value={pnl.fees} signed />}
-                        <PnLPill label="市場損益" value={pnl.marketGain} signed highlight />
+                        <PnLPill label="淨資產變動" value={pnl.totalReturn} signed highlight />
                         <div style={{ width: '100%', fontSize: 11, color: '#64748b', borderTop: '1px solid #f1f5f9', paddingTop: 6, marginTop: 2 }}>
-                          報酬率：
+                          期間變動率：
                           <span style={{ fontWeight: 700, color: pnl.returnPct >= 0 ? '#059669' : '#ef4444' }}>
                             {pnl.returnPct >= 0 ? '+' : ''}{pnl.returnPct.toFixed(2)}%
                           </span>
-                          <span style={{ marginLeft: 8, color: '#94a3b8' }}>（總變動 {pnl.totalReturn >= 0 ? '+' : ''}{fmtWan(pnl.totalReturn)}）</span>
                         </div>
                       </div>
                     )}
