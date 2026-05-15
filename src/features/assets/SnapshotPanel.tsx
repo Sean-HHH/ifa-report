@@ -36,6 +36,8 @@ export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose
   const [draftLabel, setDraftLabel] = useState('')
   const [draftDate, setDraftDate] = useState('')
   const [draftPrices, setDraftPrices] = useState<DraftPrices>({})
+  const [draftNetContribution, setDraftNetContribution] = useState('')
+  const [draftDividendIncome, setDraftDividendIncome] = useState('')
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -65,6 +67,8 @@ export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose
     setDraftLabel('')
     setDraftDate(today())
     setDraftPrices(initial)
+    setDraftNetContribution('')
+    setDraftDividendIncome('')
     setShowCreateForm(true)
   }
 
@@ -102,8 +106,8 @@ export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose
       periodLabel: draftLabel || draftDate,
       snapshotDate: draftDate,
       openingAssets: prevTotal,
-      netContribution: 0,
-      dividendIncome: 0,
+      netContribution: snapshots.length > 0 ? (parseFloat(draftNetContribution) || 0) : 0,
+      dividendIncome: snapshots.length > 0 ? (parseFloat(draftDividendIncome) || 0) : 0,
       fxImpact: 0,
       fees: 0,
       closingAssets: newTotal,
@@ -214,16 +218,61 @@ export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose
               )
             })}
           </div>
+          {/* Cash flow fields — only for 2nd+ snapshots */}
+          {snapshots.length > 0 && (
+            <div style={{ marginTop: 10, padding: '10px 10px 6px', background: '#fafafa', borderRadius: 'var(--radius-sm)', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#475569', marginBottom: 8 }}>本期資金流動</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <label style={{ fontSize: 11, color: '#64748b', width: 120, flexShrink: 0 }}>淨投入</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={draftNetContribution}
+                    onChange={e => setDraftNetContribution(e.target.value)}
+                    style={{ width: 110, fontSize: 11, padding: '3px 6px', border: '1px solid var(--color-border)', borderRadius: 4, outline: 'none', background: '#fff' }}
+                  />
+                  <span style={{ fontSize: 10, color: '#94a3b8' }}>正 = 增資，負 = 提領</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <label style={{ fontSize: 11, color: '#64748b', width: 120, flexShrink: 0 }}>配息收入（選填）</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={draftDividendIncome}
+                    onChange={e => setDraftDividendIncome(e.target.value)}
+                    style={{ width: 110, fontSize: 11, padding: '3px 6px', border: '1px solid var(--color-border)', borderRadius: 4, outline: 'none', background: '#fff' }}
+                  />
+                </div>
+              </div>
+              <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 6 }}>
+                賣股換現但留在組合內 → 淨投入填 0（內部流動）
+              </div>
+            </div>
+          )}
+
           {/* Total preview */}
           {(() => {
             const prevTotal = totalAssetsConverted(client, rates, reportCurrency)
             const delta = draftTotal - prevTotal
+            const nc = parseFloat(draftNetContribution) || 0
+            const div = parseFloat(draftDividendIncome) || 0
+            const marketReturn = snapshots.length > 0 ? delta - nc - div : delta
             return (
               <div style={{ marginTop: 8, padding: '6px 8px', background: '#f0f9ff', borderRadius: 'var(--radius-sm)', fontSize: 12 }}>
-                期末總計：<strong>{fmtWan(draftTotal)}</strong>
-                <span style={{ marginLeft: 8, color: delta >= 0 ? '#059669' : '#ef4444' }}>
-                  {delta >= 0 ? '+' : ''}{fmtWan(delta)} vs 期初 {fmtWan(prevTotal)}
-                </span>
+                <div>期末總計：<strong>{fmtWan(draftTotal)}</strong>
+                  <span style={{ marginLeft: 8, color: delta >= 0 ? '#059669' : '#ef4444' }}>
+                    {delta >= 0 ? '+' : ''}{fmtWan(delta)} vs 期初 {fmtWan(prevTotal)}
+                  </span>
+                </div>
+                {snapshots.length > 0 && (
+                  <div style={{ marginTop: 4, color: '#64748b' }}>
+                    市場損益估算：<span style={{ fontWeight: 600, color: marketReturn >= 0 ? '#059669' : '#ef4444' }}>
+                      {marketReturn >= 0 ? '+' : ''}{fmtWan(marketReturn)}
+                    </span>
+                    <span style={{ color: '#94a3b8', fontSize: 11, marginLeft: 4 }}>（總變動 − 淨投入 − 配息）</span>
+                  </div>
+                )}
               </div>
             )
           })()}
@@ -363,8 +412,10 @@ export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose
                         <PnLPill label="期末" value={pnl.closingAssets} />
                         {pnl.netContribution !== 0 && <PnLPill label="淨投入" value={pnl.netContribution} signed />}
                         {pnl.dividendIncome !== 0 && <PnLPill label="配息" value={pnl.dividendIncome} signed />}
-                        {pnl.fees !== 0 && <PnLPill label="費用" value={pnl.fees} signed />}
-                        <PnLPill label="淨資產變動" value={pnl.totalReturn} signed highlight />
+                        {(pnl.netContribution !== 0 || pnl.dividendIncome !== 0)
+                          ? <PnLPill label="市場損益" value={pnl.marketGain} signed highlight />
+                          : <PnLPill label="淨資產變動" value={pnl.totalReturn} signed highlight />
+                        }
                         <div style={{ width: '100%', fontSize: 11, color: '#64748b', borderTop: '1px solid #f1f5f9', paddingTop: 6, marginTop: 2 }}>
                           期間變動率：
                           <span style={{ fontWeight: 700, color: pnl.returnPct >= 0 ? '#059669' : '#ef4444' }}>

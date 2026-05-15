@@ -435,11 +435,13 @@ function Layer2({ client, rates, reportCurrency }: { client: ClientProfile; rate
         if (!activeSnap || activeSnap.closingAssets == null) return null
         const pnl = calcPeriodPnL(activeSnap, client.ledgerEntries)
         const returnColor = pnl.totalReturn >= 0 ? 'text-emerald-600' : 'text-red-500'
+        const hasDecomposition = pnl.netContribution !== 0 || pnl.dividendIncome !== 0
         const cards = [
               ...(pnl.netContribution !== 0 ? [{ label: '淨投入', value: pnl.netContribution, signed: true }] : []),
               ...(pnl.dividendIncome !== 0 ? [{ label: '配息收入', value: pnl.dividendIncome, signed: true }] : []),
-              ...(pnl.fees !== 0 ? [{ label: '費用', value: pnl.fees, signed: true }] : []),
-              { label: '淨資產變動', value: pnl.totalReturn, signed: true, primary: true },
+              hasDecomposition
+                ? { label: '市場損益', value: pnl.marketGain, signed: true, primary: true }
+                : { label: '淨資產變動', value: pnl.totalReturn, signed: true, primary: true },
             ]
         return (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
