@@ -82,7 +82,8 @@ src/
       exchangeRate.ts            ← FX 類型定義
       useAppSettings.ts          ← （符號連結）
     share/
-      ShareModal.tsx             ← 分享設定 Modal（visible_modules 選擇、密碼設定）
+      ShareModal.tsx             ← 快照分享 Modal（一快照一連結；create/manage/revoke 三狀態；upsert/delete Supabase）
+      ShareListModal.tsx         ← 所有快照的分享管理入口（列表 + 已分享/未分享 badge）
   pages/
     ClientView/
       index.tsx                  ← 客戶端主容器（tab 切換）
@@ -117,9 +118,19 @@ npm run preview  # 預覽 production build
 - `ifa_active_client` → 目前選中的 client UUID
 
 **Schema 版本歷史（useClientStore.ts）：**
-v1 → v2 → v3 → v4 → v5 → v6 → v7 → ... → v10 → v11（目前）
+v1 → v2 → v3 → v4 → v5 → v6 → v7 → ... → v10 → v11 → v12 → v13 → v14（目前）
 - v11：`InvestmentItem` 補 `id`（UUID）；`AssetPeriodSnapshot` 補 `ledgerEntries: []`
+- v12：`ClientProfile` 新增 `ledgerEntries: LedgerEntry[]`（全局交易記錄）；`LedgerEntry` 新增 `snapshotId?: string`；`InvestmentItem` 新增 `avgCost?: number`
+- v13：`LiabilityItem` 新增 `annualInterestRate?: number`（optional，舊資料保持 undefined）
+- v14：`LedgerLine` 新增 `type?: LedgerLineType`（舊資料預設 'buy'）
 新欄位加入時必須在 migration 中補齊預設值。
+
+**近期新增欄位（optional，migration 以 spread + fallback 處理，無須遞增版本）：**
+- `ClientProfile.realEstateReturnRate?: number` — 不動產年化增值率（預設同 globalInflationRate）
+- `ClientProfile.withdrawalRate?: number` — 退休安全提領率（預設 0.04）
+- `ClientProfile.retirementLumpSum?: number` — 一次性退休金，退休時名目值（預設 0）
+- `ClientProfile.monthlyPension?: number` — 月退休年金，今日幣值（預設 0）
+- `AssetPeriodSnapshot.shareId?: string` — Supabase shared_snapshots 行 UUID；undefined = 未分享
 
 **Supabase（分享）：**
 - Table: `shared_snapshots`

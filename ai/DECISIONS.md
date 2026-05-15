@@ -38,8 +38,12 @@
 | 介面語言 | 繁體中文 | 目標市場台灣，不做多語系 |
 | InputForm 結構 | 6 tabs（基本/收支/資產/投資/支出/退休） | 依資料類型分組，比原先 3 tabs 更清晰 |
 | 分享密碼 | hash 存 Supabase，不存明文 | 基本安全性，IFA 不需要登入系統 |
-| 資產變動追蹤（Ledger） | 與「期間記錄」綁定；LedgerEntry → LedgerLine 雙層結構；確認後套用至 assetItems；差額自動建 MajorExpense | 交易記錄與資產快照同步，確保可鉤稽；差額標記讓 IFA 補充說明 |
+| 資產變動追蹤（Ledger） | LedgerEntry → LedgerLine 雙層結構；交易記錄存於 ClientProfile.ledgerEntries（全局），以 snapshotId 關聯期間快照；確認後套用至 assetItems；差額自動建 MajorExpense；avgCost 由 ledger 自動維護（加權平均成本），unitPrice 仍為手填市價 | 交易記錄不依附快照，刪快照不遺失歷史；avgCost 與 unitPrice 分離，成本追蹤與市值評估互不干擾 |
 | 快照 UI 改名 | 「快照」→「期間記錄」（UI 層）；型別名 `AssetPeriodSnapshot` 保留不動 | 語意更精確；型別名不動避免大量 import 更新 |
+| 分享連結綁定 | 一快照一連結；`AssetPeriodSnapshot.shareId` 存 Supabase row UUID；upsert（修改已分享）/ delete（撤銷）模式 | 避免同一快照出現多條分享連結；分享狀態對齊快照版本 |
+| 資產成長雙池模型 | 流動資產（現金/股票/基金/債券/加密/其他）與不動產分池獨立成長；不動產使用 `realEstateReturnRate`（預設同通膨率）；流動池每年扣除重大支出後複利 | 不動產難以即時變現，與流動資產混算會高估流動性；重大支出衝擊只從流動池扣 |
+| 不動產不計入退休提領缺口 | `projectedUsableBase = projectedLiquidBase + lumpSum`；gap 比較與退休後模擬均以此為基準；不動產另列顯示 | 不動產通常為自住，退休時不一定能提領；高估可用資產對客戶有風險 |
+| 月退年金假設 | 名目固定（不隨通膨調升）；保守假設 | 台灣勞保月退有條件調升但非每年，保守估算讓缺口計算不低估；客戶接受後可視實際條件手動調整 |
 
 ---
 
@@ -47,8 +51,9 @@
 
 - `useClientStore.ts` 必須永遠向後相容，不可 breaking change
 - 新欄位必須有預設值，migration 自動補齊舊資料
-- Migration 版本號遞增（目前 v11）
+- Migration 版本號遞增（目前 v14）
 - 改 `ClientProfile` 型別 → 必須同步改 migration → 必須在 `InputForm` 有對應輸入 → 視情況在報表中顯示
+- Optional 欄位且 calc 層有 `?? default` fallback 者，可不遞增版本（`...raw` spread 自動帶入舊值）
 
 ---
 
