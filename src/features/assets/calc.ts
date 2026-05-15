@@ -49,7 +49,7 @@ export interface GrowthYear {
   warningExpense: number      // 觸發警示的支出金額
 }
 
-export function calcAssetGrowth(c: ClientProfile): GrowthYear[] {
+export function calcAssetGrowth(c: ClientProfile, years = 30): GrowthYear[] {
   const rates = RISK_RETURN[c.riskProfile]
   const effectiveRates = {
     conservative: c.customReturnRate !== null ? c.customReturnRate * 0.8 : rates.conservative,
@@ -78,7 +78,7 @@ export function calcAssetGrowth(c: ClientProfile): GrowthYear[] {
 
   const result: GrowthYear[] = []
 
-  for (let y = 0; y < 30; y++) {
+  for (let y = 0; y < years; y++) {
     const targetYear = currentYear + y
     const majorOut = c.majorExpenses
       .filter(e => e.year === targetYear)

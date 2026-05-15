@@ -177,6 +177,9 @@ export interface ClientProfile {
   retirementLifespan: number
   targetMonthlyRetirementIncome: number
   majorExpenses: MajorExpense[]
+  withdrawalRate?: number         // 安全提領率，預設 0.04
+  retirementLumpSum?: number      // 一次性退休金（勞退、資遣費等），退休時名目值
+  monthlyPension?: number         // 月退休年金（勞保月退等），今日幣值
 }
 
 export function calcCurrentAge(birthYear: number): number {
@@ -244,5 +247,8 @@ export function newClient(): ClientProfile {
     retirementLifespan: 30,
     targetMonthlyRetirementIncome: 50000,
     majorExpenses: [],
+    withdrawalRate: 0.04,
+    retirementLumpSum: 0,
+    monthlyPension: 0,
   }
 }
