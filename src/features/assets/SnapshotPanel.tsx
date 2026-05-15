@@ -259,7 +259,7 @@ export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose
             const div = parseFloat(draftDividendIncome) || 0
             const marketReturn = snapshots.length > 0 ? delta - nc - div : delta
             return (
-              <div style={{ marginTop: 8, padding: '6px 8px', background: '#f0f9ff', borderRadius: 'var(--radius-sm)', fontSize: 12 }}>
+              <div style={{ marginTop: 8, padding: '6px 8px', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', fontSize: 12 }}>
                 <div>期末總計：<strong>{fmtWan(draftTotal)}</strong>
                   <span style={{ marginLeft: 8, color: delta >= 0 ? '#059669' : '#ef4444' }}>
                     {delta >= 0 ? '+' : ''}{fmtWan(delta)} vs 期初 {fmtWan(prevTotal)}
@@ -357,10 +357,10 @@ export function SnapshotPanel({ client, rates, reportCurrency, onUpdate, onClose
                     onClick={() => onShare(s)}
                     style={{
                       fontSize: 11, fontWeight: 600, padding: '2px 8px',
-                      border: `1px solid ${s.shareId ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                      border: `1px solid ${s.shareId ? 'var(--color-lime)' : 'var(--color-border)'}`,
                       borderRadius: 'var(--radius-sm)',
-                      background: s.shareId ? 'rgba(37,99,235,0.06)' : 'none',
-                      color: s.shareId ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                      background: s.shareId ? 'var(--color-lime-bg)' : 'none',
+                      color: s.shareId ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
                       cursor: 'pointer',
                     }}
                   >
