@@ -80,7 +80,7 @@ export default function App() {
         onUpdate={handleShareUpdate}
       />
     )}
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--color-bg)', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', sans-serif" }}>
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--color-bg)' }}>
       {/* Sidebar — 列印時隱藏 */}
       <aside data-print-hide style={{
         width: sidebarOpen ? 256 : 0,
@@ -147,11 +147,11 @@ export default function App() {
               onClick={() => setShowFxPanel(v => !v)}
               style={{
                 fontSize: 12, padding: '5px 10px',
-                border: `1px solid ${showFxPanel ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                border: `1px solid ${showFxPanel ? 'var(--color-lime)' : 'var(--color-border)'}`,
                 borderRadius: 'var(--radius-sm)',
-                background: showFxPanel ? 'rgba(37,99,235,0.06)' : 'var(--color-surface)',
-                color: showFxPanel ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                cursor: 'pointer',
+                background: showFxPanel ? 'var(--color-lime-bg)' : 'var(--color-surface)',
+                color: showFxPanel ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                cursor: 'pointer', fontWeight: showFxPanel ? 600 : 400,
               }}
             >
               匯率
@@ -163,11 +163,11 @@ export default function App() {
                 onClick={() => setShowSnapshotPanel(v => !v)}
                 style={{
                   fontSize: 12, padding: '5px 10px',
-                  border: `1px solid ${showSnapshotPanel ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                  border: `1px solid ${showSnapshotPanel ? 'var(--color-lime)' : 'var(--color-border)'}`,
                   borderRadius: 'var(--radius-sm)',
-                  background: showSnapshotPanel ? 'rgba(37,99,235,0.06)' : 'var(--color-surface)',
-                  color: showSnapshotPanel ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                  cursor: 'pointer',
+                  background: showSnapshotPanel ? 'var(--color-lime-bg)' : 'var(--color-surface)',
+                  color: showSnapshotPanel ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                  cursor: 'pointer', fontWeight: showSnapshotPanel ? 600 : 400,
                 }}
               >
                 期間記錄
@@ -177,11 +177,11 @@ export default function App() {
             {activeClient && (
               <button onClick={() => setShowShareListModal(true)} style={{
                 fontSize: 12, padding: '5px 10px',
-                border: `1px solid ${showShareListModal ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                border: `1px solid ${showShareListModal ? 'var(--color-lime)' : 'var(--color-border)'}`,
                 borderRadius: 'var(--radius-sm)',
-                background: showShareListModal ? 'rgba(37,99,235,0.06)' : 'var(--color-surface)',
-                color: showShareListModal ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                cursor: 'pointer',
+                background: showShareListModal ? 'var(--color-lime-bg)' : 'var(--color-surface)',
+                color: showShareListModal ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                cursor: 'pointer', fontWeight: showShareListModal ? 600 : 400,
               }}>
                 分享管理
               </button>
@@ -191,11 +191,11 @@ export default function App() {
               <button onClick={handleExport} disabled={printing} style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 background: printing ? 'var(--color-primary-muted)' : 'var(--color-primary)',
-                color: '#fff',
+                color: printing ? 'var(--color-text-muted)' : '#fff',
                 border: 'none', cursor: printing ? 'not-allowed' : 'pointer',
                 fontSize: 13, fontWeight: 600, padding: '7px 18px',
                 borderRadius: 'var(--radius-md)', transition: 'background 0.15s',
-                boxShadow: printing ? 'none' : '0 1px 4px rgba(37,99,235,0.3)',
+                boxShadow: printing ? 'none' : '0 1px 4px rgba(0,0,0,0.18)',
               }}>
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -248,7 +248,7 @@ export default function App() {
               <button onClick={createClient} style={{
                 background: 'var(--color-primary)', color: '#fff', border: 'none',
                 cursor: 'pointer', fontSize: 14, fontWeight: 600, padding: '9px 22px',
-                borderRadius: 'var(--radius-md)', boxShadow: '0 1px 4px rgba(30,64,175,0.3)',
+                borderRadius: 'var(--radius-md)', boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
               }}>
                 建立第一位客戶
               </button>
@@ -268,8 +268,8 @@ export default function App() {
                 {(Object.keys(tabLabels) as ReportTab[]).map(t => (
                   <button key={t} onClick={() => setReportTab(t)} style={{
                     padding: '12px 20px', fontSize: 14, fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer',
-                    color: reportTab === t ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                    borderBottom: reportTab === t ? '3px solid var(--color-primary)' : '3px solid transparent',
+                    color: reportTab === t ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                    borderBottom: reportTab === t ? `3px solid var(--color-lime)` : '3px solid transparent',
                     transition: 'color 0.15s',
                     marginBottom: -1,
                   }}>

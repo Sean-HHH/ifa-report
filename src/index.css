@@ -1,12 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  /* Brand — Analytics Dashboard (Light Professional) */
-  --color-primary: #1E40AF;
-  --color-primary-hover: #1D3A9E;
-  --color-primary-muted: #DBEAFE;
+  /* Brand — Fintech Dashboard */
+  /* Primary: near-black for CTA buttons, strong text */
+  --color-primary: #111827;
+  --color-primary-hover: #1f2937;
+  --color-primary-muted: #f3f4f6;
 
-  /* Accent */
+  /* Lime accent — active states, highlights, positive indicators, selected tabs */
+  --color-lime: #a3e635;
+  --color-lime-hover: #84cc16;
+  --color-lime-muted: #d9f99d;
+  --color-lime-bg: rgba(163, 230, 53, 0.12);
+
+  /* Legacy accent (amber) — kept for semantic warning use */
   --color-accent: #D97706;
   --color-accent-hover: #B45309;
 
@@ -27,13 +34,24 @@
   --color-negative: #DC2626;
   --color-warning: #D97706;
 
-  /* Sidebar (dark navy) */
+  /* Sidebar (dark) */
   --color-sidebar-bg: #0F172A;
   --color-sidebar-text: #F1F5F9;
   --color-sidebar-text-muted: #94A3B8;
   --color-sidebar-hover: #1E293B;
   --color-sidebar-border: #1E293B;
-  --color-sidebar-active: rgba(30, 64, 175, 0.35);
+  --color-sidebar-active: rgba(163, 230, 53, 0.18);
+  --color-sidebar-active-text: #a3e635;
+
+  /* Chart palette — centralized */
+  --chart-1: #a3e635;
+  --chart-2: #3b82f6;
+  --chart-3: #10b981;
+  --chart-4: #f59e0b;
+  --chart-5: #8b5cf6;
+  --chart-6: #ef4444;
+  --chart-7: #06b6d4;
+  --chart-8: #f43f5e;
 
   /* Radius */
   --radius-sm: 6px;
@@ -66,7 +84,8 @@
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.15);
+  box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.25);
+  outline: none;
 }
 
 @media print {

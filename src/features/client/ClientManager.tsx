@@ -28,7 +28,7 @@ export function ClientManager({ clients, activeId, onSelect, onCreate, onDelete 
             padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
             transition: 'background 0.15s',
             background: c.id === activeId ? 'var(--color-sidebar-active)' : 'transparent',
-            border: c.id === activeId ? '1px solid rgba(99,131,235,0.3)' : '1px solid transparent',
+            border: c.id === activeId ? '1px solid rgba(163,230,53,0.35)' : '1px solid transparent',
           }}
           onMouseEnter={e => {
             if (c.id !== activeId) (e.currentTarget as HTMLDivElement).style.background = 'var(--color-sidebar-hover)'
@@ -40,7 +40,7 @@ export function ClientManager({ clients, activeId, onSelect, onCreate, onDelete 
           <div style={{ minWidth: 0 }}>
             <div style={{
               fontWeight: 500, fontSize: 13,
-              color: c.id === activeId ? 'var(--color-sidebar-text)' : 'var(--color-sidebar-text)',
+              color: c.id === activeId ? 'var(--color-sidebar-active-text)' : 'var(--color-sidebar-text)',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>{c.name}</div>
             <div style={{ fontSize: 11, color: 'var(--color-sidebar-text-muted)', marginTop: 2 }}>
@@ -74,7 +74,7 @@ export function ClientManager({ clients, activeId, onSelect, onCreate, onDelete 
         }}
         onMouseEnter={e => {
           const btn = e.currentTarget as HTMLButtonElement
-          btn.style.borderColor = 'rgba(99,131,235,0.5)'
+          btn.style.borderColor = 'rgba(163,230,53,0.45)'
           btn.style.color = 'var(--color-sidebar-text)'
         }}
         onMouseLeave={e => {
