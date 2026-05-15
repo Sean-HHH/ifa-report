@@ -66,7 +66,7 @@ export function InputForm({ client: c, onChange, rates }: Props) {
         {tab === 'basic'       && <BasicTab c={c} patch={patch} />}
         {tab === 'cashflow'    && <><IncomeTab c={c} patch={patch} /><ExpenseTab c={c} patch={patch} /></>}
         {tab === 'assets'      && <><AssetTab c={c} patch={patch} rates={rates} /><LiabilityTab c={c} patch={patch} /></>}
-        {tab === 'invest'      && <InvestTab c={c} patch={patch} />}
+        {tab === 'invest'      && <InvestTab c={c} patch={patch} rates={rates} />}
         {tab === 'major'       && <MajorExpenseTab c={c} patch={patch} />}
         {tab === 'retirement'  && <RetirementTab c={c} patch={patch} />}
       </div>

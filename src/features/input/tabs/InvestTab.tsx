@@ -1,6 +1,7 @@
 import type { ClientProfile, RiskProfile, InvestmentCategory } from '../../../types/client'
 import { INVESTMENT_CATEGORY_LABELS, RISK_RETURN } from '../../../types/client'
-import { calcCashFlow, fmtPct } from '../../../utils/calculations'
+import { calcCashFlow, fmtPct, totalAssetsConverted } from '../../../utils/calculations'
+import type { FxRates } from '../../fx/exchangeRate'
 import { Section, NumField } from '../shared'
 
 const riskLabels: Record<RiskProfile, string> = {
@@ -12,9 +13,16 @@ const riskLabels: Record<RiskProfile, string> = {
 interface Props {
   c: ClientProfile
   patch: (partial: Partial<ClientProfile>) => void
+  rates?: FxRates
 }
 
-export function InvestTab({ c, patch }: Props) {
+function fmtWan(n: number) {
+  if (Math.abs(n) >= 1e8) return `${(n / 1e8).toFixed(1)} 億`
+  if (Math.abs(n) >= 1e4) return `${(n / 1e4).toFixed(0)} 萬`
+  return n.toLocaleString('zh-TW')
+}
+
+export function InvestTab({ c, patch, rates }: Props) {
   return (
     <>
       <Section title="風險承受度">
@@ -103,34 +111,53 @@ export function InvestTab({ c, patch }: Props) {
         })()}
       </Section>
       <Section title="目標配置">
-        <div className="space-y-1.5">
-          {(Object.keys(INVESTMENT_CATEGORY_LABELS) as InvestmentCategory[]).map(cat => {
-            const val = c.targetAllocation[cat]
-            return (
-              <div key={cat} className="flex items-center gap-3">
-                <label className="text-sm text-slate-500 w-24 shrink-0">{INVESTMENT_CATEGORY_LABELS[cat]}</label>
-                <input
-                  type="number"
-                  min={0} max={100} step={1}
-                  placeholder="–"
-                  className="border border-slate-200 rounded-lg px-3 py-1.5 w-20 text-sm focus:border-blue-300 outline-none"
-                  value={val !== undefined ? val : ''}
-                  onChange={e => {
-                    const next = { ...c.targetAllocation }
-                    if (e.target.value === '') { delete next[cat] } else { next[cat] = Number(e.target.value) }
-                    patch({ targetAllocation: next })
-                  }}
-                />
-                <span className="text-xs text-slate-400">%</span>
-              </div>
-            )
-          })}
-        </div>
         {(() => {
-          const total = Object.values(c.targetAllocation).reduce((s, v) => s + (v ?? 0), 0)
-          if (total === 0) return <div className="text-xs text-slate-400 mt-2">尚未設定目標配置</div>
-          if (total > 100) return <div className="text-xs text-red-500 font-medium mt-2">已超配 {total - 100}%，請調整</div>
-          return <div className="text-xs text-emerald-600 mt-2">已配置 {total}%，剩餘 {100 - total}%</div>
+          const totalTWD = totalAssetsConverted(c, rates ?? { TWD: 1 }, 'TWD')
+          return (
+            <>
+              {totalTWD > 0 && (
+                <div className="text-xs text-slate-400 mb-2">
+                  總資產（折合台幣）：<span className="font-medium text-slate-600">{fmtWan(totalTWD)}</span>
+                  <span className="ml-1 text-slate-300">— 各比例對應金額依此估算</span>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                {(Object.keys(INVESTMENT_CATEGORY_LABELS) as InvestmentCategory[]).map(cat => {
+                  const val = c.targetAllocation[cat]
+                  const estAmount = val !== undefined && val > 0 && totalTWD > 0
+                    ? val / 100 * totalTWD
+                    : null
+                  return (
+                    <div key={cat} className="flex items-center gap-3">
+                      <label className="text-sm text-slate-500 w-24 shrink-0">{INVESTMENT_CATEGORY_LABELS[cat]}</label>
+                      <input
+                        type="number"
+                        min={0} max={100} step={1}
+                        placeholder="–"
+                        className="border border-slate-200 rounded-lg px-3 py-1.5 w-20 text-sm focus:border-blue-300 outline-none"
+                        value={val !== undefined ? val : ''}
+                        onChange={e => {
+                          const next = { ...c.targetAllocation }
+                          if (e.target.value === '') { delete next[cat] } else { next[cat] = Number(e.target.value) }
+                          patch({ targetAllocation: next })
+                        }}
+                      />
+                      <span className="text-xs text-slate-400">%</span>
+                      {estAmount !== null && (
+                        <span className="text-xs text-slate-400">≈ <span className="font-medium text-slate-600">{fmtWan(estAmount)}</span></span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              {(() => {
+                const total = Object.values(c.targetAllocation).reduce((s, v) => s + (v ?? 0), 0)
+                if (total === 0) return <div className="text-xs text-slate-400 mt-2">尚未設定目標配置</div>
+                if (total > 100) return <div className="text-xs text-red-500 font-medium mt-2">已超配 {total - 100}%，請調整</div>
+                return <div className="text-xs text-emerald-600 mt-2">已配置 {total}%，剩餘 {100 - total}%</div>
+              })()}
+            </>
+          )
         })()}
         <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-100">
           <label className="text-sm text-slate-500 w-24 shrink-0">容許偏離</label>
