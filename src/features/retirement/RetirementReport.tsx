@@ -19,22 +19,22 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
   const isOnTrack = r.gap <= 0
 
   const gapData = {
-    labels: ['目標退休資產', '預計累積'],
+    labels: ['目標退休資產', '可提領資產'],
     datasets: [{
       label: '金額',
-      data: [r.targetAsset, r.projectedAssetBase],
-      backgroundColor: ['#ef4444', r.projectedAssetBase >= r.targetAsset ? '#10b981' : '#3b82f6'],
+      data: [r.targetAsset, r.projectedUsableBase],
+      backgroundColor: ['#ef4444', r.projectedUsableBase >= r.targetAsset ? '#10b981' : '#3b82f6'],
       borderRadius: 8,
     }],
   }
 
   const withdrawLabels = r.withdrawalYears.map(d => `${d.age}歲`)
-  const lastBase = r.withdrawalYears[r.withdrawalYears.length - 1]?.base ?? 0
+  const lastBase = r.withdrawalYears[r.withdrawalYears.length - 1]?.liquidBase ?? 0
   const withdrawData = {
     labels: withdrawLabels,
     datasets: [{
-      label: '退休資產',
-      data: r.withdrawalYears.map(d => Math.max(d.base, 0)),
+      label: '流動資產',
+      data: r.withdrawalYears.map(d => Math.max(d.liquidBase, 0)),
       borderColor: lastBase <= 0 ? '#ef4444' : '#10b981',
       backgroundColor: lastBase <= 0 ? 'rgba(239,68,68,0.06)' : 'rgba(16,185,129,0.08)',
       borderWidth: 2,
@@ -47,7 +47,7 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
     y: { ticks: { callback: (v: number | string) => disp(Number(v), true) } },
   }
 
-  const depleted = r.withdrawalYears.findIndex(d => d.base <= 0)
+  const depleted = r.withdrawalYears.findIndex(d => d.liquidBase <= 0)
   const depletedAge = depleted >= 0 ? r.withdrawalYears[depleted].age : null
   const survives = depletedAge === null || depletedAge >= r.targetEndAge
 
@@ -101,12 +101,8 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
         <div className="bg-slate-50 rounded-xl p-4 space-y-2">
           <div className="text-sm font-semibold text-slate-600">退休時資產來源</div>
           <div className="flex justify-between text-xs text-slate-500">
-            <span>投資組合（液態）</span>
+            <span>流動資產</span>
             <span className="font-medium text-slate-700">{disp(r.projectedLiquidBase, true)}</span>
-          </div>
-          <div className="flex justify-between text-xs text-slate-500">
-            <span>不動產（非流動）</span>
-            <span className="font-medium text-slate-700">{disp(r.projectedAssetBase - r.projectedLiquidBase - r.retirementLumpSum, true)}</span>
           </div>
           {r.retirementLumpSum > 0 && (
             <div className="flex justify-between text-xs text-slate-500">
@@ -115,9 +111,15 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
             </div>
           )}
           <div className="flex justify-between text-xs font-semibold border-t border-slate-200 pt-2">
-            <span>合計</span>
-            <span className="text-slate-800">{disp(r.projectedAssetBase, true)}</span>
+            <span>可用於提領小計</span>
+            <span className="text-slate-800">{disp(r.projectedUsableBase, true)}</span>
           </div>
+          {r.projectedRealEstateBase > 0 && (
+            <div className="flex justify-between text-xs text-slate-400 pt-1">
+              <span>不動產（不計入缺口）</span>
+              <span>{disp(r.projectedRealEstateBase, true)}</span>
+            </div>
+          )}
         </div>
 
         {/* 月現金流拆解 */}
@@ -129,12 +131,12 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
           </div>
           {r.monthlyPension > 0 && (
             <div className="flex justify-between text-xs text-slate-500">
-              <span>月退年金</span>
+              <span>月退年金（名目固定）</span>
               <span className="font-medium text-emerald-600">−{disp(r.monthlyPension, true)}</span>
             </div>
           )}
           <div className="flex justify-between text-xs text-slate-500">
-            <span>需自籌（今日幣值）</span>
+            <span>需自籌概估（今日參考）</span>
             <span className="font-medium text-slate-700">{disp(r.netMonthlyNeeded_today, true)}</span>
           </div>
           <div className="flex justify-between text-xs font-semibold border-t border-slate-200 pt-2">
@@ -161,7 +163,7 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
             <span className="font-medium">{disp(r.targetAsset, true)}</span>
           </div>
           <div className={`flex justify-between text-xs font-semibold border-t pt-2 ${survives ? 'border-emerald-200 text-emerald-700' : 'border-red-200 text-red-700'}`}>
-            <span>資金耗盡時間</span>
+            <span>流動資金耗盡時間</span>
             <span>{depletedAge ? `${depletedAge} 歲` : `${r.targetEndAge} 歲後仍有餘`}</span>
           </div>
         </div>
@@ -170,7 +172,7 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
       {/* 假設說明 */}
       <div className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2 space-y-0.5">
         <div>退休後報酬率：{fmtPct(Math.max((client.customReturnRate ?? RISK_RETURN[client.riskProfile].base) - 0.01, 0.02) * 100)}（投資報酬率 −1%，最低 2%）　·　通膨率：{fmtPct(client.globalInflationRate * 100)}</div>
-        <div>月提領額每年依通膨調升　·　退休缺口與目標資產均以退休時名目值計算</div>
+        <div>月提領額每年依通膨調升　·　月退年金假設名目固定（不隨通膨調升）　·　不動產不計入退休提領</div>
       </div>
 
       {/* 建議行動 */}

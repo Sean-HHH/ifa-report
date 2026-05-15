@@ -5,15 +5,17 @@ import { calcAssetGrowth, type GrowthYear } from '../assets/calc'
 export interface RetirementResult {
   yearsToRetirement: number
   targetEndAge: number            // retirementAge + retirementLifespan
-  projectedAssetBase: number      // 投影資產（液態+不動產）+ 一次性退休金
-  projectedLiquidBase: number     // 退休時液態資產（不含不動產）
+  projectedAssetBase: number      // 總資產（流動+不動產+一次性退休金），供顯示用
+  projectedLiquidBase: number     // 退休時流動資產（不含不動產）
+  projectedRealEstateBase: number // 退休時不動產估值
+  projectedUsableBase: number     // 實際可用於退休提領（流動+一次性退休金，不含不動產）
   retirementLumpSum: number
   monthlyPension: number
-  netMonthlyNeeded_today: number      // 目標月現金流 − 月退年金（今日幣值）
-  netMonthlyNeeded_retirement: number // 通膨調整至退休時的月缺口
-  targetAsset: number             // 需自籌退休資產（依提領率）
+  netMonthlyNeeded_today: number      // 目標月現金流 − 月退年金（今日幣值，供參考）
+  netMonthlyNeeded_retirement: number // 退休時名目月缺口（保守：年金不隨通膨）
+  targetAsset: number             // 需自籌退休資產（依提領率，對應 projectedUsableBase）
   withdrawalRate: number
-  gap: number
+  gap: number                     // targetAsset − projectedUsableBase
   requiredMonthlySavings: number
   suggestedWithdrawalRate: number
   withdrawalYears: GrowthYear[]
@@ -36,16 +38,19 @@ export function calcRetirement(c: ClientProfile): RetirementResult {
 
   const retirementYearData = growth.find(d => d.age === c.retirementAge) ?? growth[growth.length - 1]
   const projectedLiquidBase = retirementYearData.liquidBase
-  const projectedAssetBase = retirementYearData.base + lumpSum
+  const projectedRealEstateBase = retirementYearData.realEstateValue
+  const projectedAssetBase = retirementYearData.base + lumpSum         // 全資產（含不動產），供顯示
+  const projectedUsableBase = projectedLiquidBase + lumpSum             // 可提領資產（不含不動產）
 
-  // 月缺口：今日幣值 → 退休時名目值
+  // 月缺口：保守假設 — 年金不隨通膨調升，固定名目值
   const netMonthlyNeeded_today = Math.max(0, c.targetMonthlyRetirementIncome - monthlyPension)
-  const netMonthlyNeeded_retirement = netMonthlyNeeded_today *
+  const grossMonthlyNeeded_retirement = c.targetMonthlyRetirementIncome *
     Math.pow(1 + c.globalInflationRate, yearsToRetirement)
+  const netMonthlyNeeded_retirement = Math.max(0, grossMonthlyNeeded_retirement - monthlyPension)
 
-  // 目標退休資產（名目，與 projectedAssetBase 同一時間點）
+  // 目標退休資產（名目，對應 projectedUsableBase；不動產不計入）
   const targetAsset = netMonthlyNeeded_retirement * 12 / withdrawalRate
-  const gap = targetAsset - projectedAssetBase
+  const gap = targetAsset - projectedUsableBase
 
   // 補足缺口所需月儲蓄（年金公式）
   const r = baseRate / 12
@@ -54,14 +59,14 @@ export function calcRetirement(c: ClientProfile): RetirementResult {
     ? (gap * r) / (Math.pow(1 + r, n) - 1)
     : 0
 
-  const suggestedWithdrawalRate = projectedAssetBase > 0
-    ? (netMonthlyNeeded_retirement * 12) / projectedAssetBase
+  const suggestedWithdrawalRate = projectedUsableBase > 0
+    ? (netMonthlyNeeded_retirement * 12) / projectedUsableBase
     : 0
 
-  // 退休後提領模擬（通膨滾動月提領額）
+  // 退休後提領模擬（從流動資產+一次性退休金開始，不含不動產）
   const postRetirementRate = Math.max(baseRate - 0.01, 0.02)
   const withdrawalYears: GrowthYear[] = []
-  let remaining = projectedAssetBase
+  let remaining = projectedUsableBase
   let monthlyWithdraw = netMonthlyNeeded_retirement
 
   for (let y = 0; y <= c.retirementLifespan; y++) {
@@ -81,6 +86,8 @@ export function calcRetirement(c: ClientProfile): RetirementResult {
     targetEndAge,
     projectedAssetBase,
     projectedLiquidBase,
+    projectedRealEstateBase,
+    projectedUsableBase,
     retirementLumpSum: lumpSum,
     monthlyPension,
     netMonthlyNeeded_today,
