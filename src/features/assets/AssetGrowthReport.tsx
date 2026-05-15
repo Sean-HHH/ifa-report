@@ -9,6 +9,7 @@ import { calcAssetGrowth, convertCurrency, fmtAmount, fmtPct, netWorth } from '.
 import { RISK_RETURN, calcCurrentAge } from '../../types/client'
 import type { FxRates } from '../fx/exchangeRate'
 import { StatCard } from '../../shared/StatCard'
+import { SectionTitle } from '../../shared/SectionTitle'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -138,7 +139,7 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
 
       {client.majorExpenses.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-slate-700 mb-2">重大支出時程</h3>
+          <SectionTitle>重大支出時程</SectionTitle>
           <div className="space-y-1">
             {client.majorExpenses.map((e, i) => {
               const yr = data.find(d => d.year === e.year)

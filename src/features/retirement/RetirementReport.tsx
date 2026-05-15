@@ -9,6 +9,7 @@ import { RISK_RETURN } from '../../types/client'
 import { calcRetirement, convertCurrency, fmtAmount, fmtPct } from '../../utils/calculations'
 import type { FxRates } from '../fx/exchangeRate'
 import { StatCard } from '../../shared/StatCard'
+import { SectionTitle } from '../../shared/SectionTitle'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler)
 
@@ -80,15 +81,13 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
       {/* Charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">目標 vs 預計退休資產</h3>
+          <SectionTitle>目標 vs 預計退休資產</SectionTitle>
           <div className="h-56">
             <Bar data={gapData} options={{ responsive: true, plugins: { legend: { display: false } }, scales: axisOpts as never }} />
           </div>
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">
-            退休後提領模擬（至 {r.targetEndAge} 歲）
-          </h3>
+          <SectionTitle>退休後提領模擬（至 {r.targetEndAge} 歲）</SectionTitle>
           <div className="h-56">
             <Line data={withdrawData} options={{ responsive: true, plugins: { legend: { display: false } }, scales: axisOpts as never }} />
           </div>
@@ -98,7 +97,7 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
       {/* Detail cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
         {/* 退休資產構成 */}
-        <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+        <div className="bg-white border border-slate-100 shadow-sm rounded-xl p-4 space-y-2">
           <div className="text-sm font-semibold text-slate-600">退休時資產來源</div>
           <div className="flex justify-between text-xs text-slate-500">
             <span>流動資產</span>
@@ -123,7 +122,7 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
         </div>
 
         {/* 月現金流拆解 */}
-        <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+        <div className="bg-white border border-slate-100 shadow-sm rounded-xl p-4 space-y-2">
           <div className="text-sm font-semibold text-slate-600">月現金流拆解</div>
           <div className="flex justify-between text-xs text-slate-500">
             <span>目標月現金流（今日值）</span>
@@ -170,7 +169,7 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
       </div>
 
       {/* 假設說明 */}
-      <div className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2 space-y-0.5">
+      <div className="text-xs text-slate-400 bg-white border border-slate-100 rounded-lg px-3 py-2 space-y-0.5">
         <div>退休後報酬率：{fmtPct(Math.max((client.customReturnRate ?? RISK_RETURN[client.riskProfile].base) - 0.01, 0.02) * 100)}（投資報酬率 −1%，最低 2%）　·　通膨率：{fmtPct(client.globalInflationRate * 100)}</div>
         <div>月提領額每年依通膨調升　·　月退年金假設名目固定（不隨通膨調升）　·　不動產不計入退休提領</div>
       </div>

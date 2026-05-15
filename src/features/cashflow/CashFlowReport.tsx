@@ -12,6 +12,7 @@ import { calcCashFlow, calcCashFlowProjection, calcMonthlyTimeline, convertCurre
 import type { FxRates } from '../fx/exchangeRate'
 import { StatCard } from '../../shared/StatCard'
 import { NoteTag } from '../../shared/NoteTag'
+import { SectionTitle } from '../../shared/SectionTitle'
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title, PointElement, LineElement)
 
@@ -61,7 +62,7 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
     cf.investibleCashFlow,
   ]
   const waterfallColors = waterfallValues.map((_, i) => {
-    if (i === 0) return '#3b82f6'                          // 固定收入 — blue
+    if (i === 0) return '#a3e635'                          // 固定收入 — lime
     if (i === 3) return cf.trueNetCashFlow >= 0 ? '#10b981' : '#ef4444'   // 真實
     if (i === 6) return cf.investibleCashFlow >= 0 ? '#8b5cf6' : '#ef4444' // 可投資
     return '#f59e0b'                                        // 扣除項 — orange
@@ -110,9 +111,7 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
 
       {/* 三流瀑布圖 */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">
-          逐層扣除：固定收入 → 真實現金流 → 可投資現金流
-        </h3>
+        <SectionTitle>逐層扣除：固定收入 → 真實現金流 → 可投資現金流</SectionTitle>
         <div className="h-64">
           <Bar data={barData} options={barOpts as never} />
         </div>
@@ -120,10 +119,10 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
 
       {/* 財務健康指標 */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">財務健康指標</h3>
+        <SectionTitle>財務健康指標</SectionTitle>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-slate-50 rounded-xl p-3">
-            <div className="text-xs text-slate-500 mb-1">收入穩定性</div>
+          <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
+            <div className="text-xs text-slate-400 mb-1">收入穩定性</div>
             <div className={`text-lg font-bold ${
               cf.incomeStabilityRatio >= 70 ? 'text-emerald-600'
               : cf.incomeStabilityRatio >= 40 ? 'text-amber-500'
@@ -131,39 +130,37 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
             }`}>
               {fmtPct(cf.incomeStabilityRatio)}
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">固定收入佔比</div>
+            <div className="text-xs text-slate-400 mt-0.5">固定收入佔比</div>
           </div>
-          <div className="bg-slate-50 rounded-xl p-3">
-            <div className="text-xs text-slate-500 mb-1">固定支出比</div>
+          <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
+            <div className="text-xs text-slate-400 mb-1">固定支出比</div>
             <div className="text-lg font-bold text-slate-700">
               {fmtPct(cf.fixedExpenseRatio)}
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">生存＋責任 ÷ 總收入</div>
+            <div className="text-xs text-slate-400 mt-0.5">生存＋責任 ÷ 總收入</div>
           </div>
-          <div className="bg-slate-50 rounded-xl p-3">
-            <div className="text-xs text-slate-500 mb-1">低意識支出比</div>
+          <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
+            <div className="text-xs text-slate-400 mb-1">低意識支出比</div>
             <div className="text-lg font-bold text-slate-700">
               {fmtPct(cf.hiddenExpenseRatio)}
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">隱性支出 ÷ 總支出</div>
+            <div className="text-xs text-slate-400 mt-0.5">隱性支出 ÷ 總支出</div>
           </div>
-          <div className="bg-slate-50 rounded-xl p-3">
-            <div className="text-xs text-slate-500 mb-1">月投入比</div>
-            <div className="text-lg font-bold text-blue-600">
+          <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
+            <div className="text-xs text-slate-400 mb-1">月投入比</div>
+            <div className="text-lg font-bold" style={{ color: 'var(--color-lime-hover)' }}>
               {cf.investibleCashFlow > 0
                 ? fmtPct(client.monthlyContribution / cf.investibleCashFlow * 100)
                 : '–'}
             </div>
-            <div className="text-xs text-slate-500 mt-0.5">月定期投入 ÷ 可投資</div>
+            <div className="text-xs text-slate-400 mt-0.5">月定期投入 ÷ 可投資</div>
           </div>
         </div>
       </div>
 
       {/* 5年現金流 Projection */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">
-          5年現金流趨勢（通膨 {fmtPct(client.globalInflationRate * 100)}）
-        </h3>
+        <SectionTitle>5年現金流趨勢（通膨 {fmtPct(client.globalInflationRate * 100)}）</SectionTitle>
         <div className="h-56 mb-4">
           <Line
             data={{
@@ -231,10 +228,10 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
 
       {/* 收入明細 */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-2">收入明細</h3>
+        <SectionTitle>收入明細</SectionTitle>
         <div className="space-y-1">
           {client.incomes.map((item, i) => (
-            <div key={i} className="flex items-center justify-between py-2 px-3 bg-blue-50 rounded-lg text-sm">
+            <div key={i} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg text-sm border border-slate-100">
               <div className="flex items-center gap-2">
                 <span className={`text-xs px-1.5 py-0.5 rounded ${INCOME_TYPE_COLORS[item.type]}`}>
                   {INCOME_TYPE_LABELS[item.type]}
@@ -247,7 +244,7 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
                 )}
                 <NoteTag note={item.note} />
               </div>
-              <span className="font-medium text-blue-700">
+              <span className="font-medium text-slate-700">
                 {disp(item.amount, true)}
                 {item.frequency && item.frequency !== 'monthly' && (
                   <span className="text-xs text-violet-500 font-normal ml-1">
@@ -262,7 +259,7 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
 
       {/* 支出明細 */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-2">支出明細</h3>
+        <SectionTitle>支出明細</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {client.expenses.map((e, i) => (
             <div key={i} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg text-sm">
@@ -288,35 +285,35 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
 
       {/* 現金流時序分析 */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">現金流時序分析</h3>
+        <SectionTitle>現金流時序分析</SectionTitle>
 
         {/* KPI 摘要列 */}
         <div className="flex flex-wrap gap-2 mb-4">
-          <div className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-3 py-2 text-sm">
-            <span className="text-slate-500 text-xs">低谷月份</span>
+          <div className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-3 py-2 text-sm shadow-sm">
+            <span className="text-slate-400 text-xs">低谷月份</span>
             {timeline.crunchMonths.length === 0
               ? <span className="text-emerald-600 font-medium text-xs">無</span>
               : <span className="text-red-600 font-medium text-xs">{timeline.crunchMonths.map(m => `${m}月`).join('、')}</span>
             }
           </div>
-          <div className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-3 py-2 text-sm">
-            <span className="text-slate-500 text-xs">需要周轉</span>
+          <div className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-3 py-2 text-sm shadow-sm">
+            <span className="text-slate-400 text-xs">需要周轉</span>
             {timeline.needsBridging
               ? <span className="text-red-600 font-medium text-xs">⚠ 是（{timeline.crunchMonths.length} 個月）</span>
               : <span className="text-emerald-600 font-medium text-xs">✓ 不需要</span>
             }
           </div>
           {timeline.worstMonth && (
-            <div className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-3 py-2 text-sm">
-              <span className="text-slate-500 text-xs">最大缺口</span>
+            <div className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-3 py-2 text-sm shadow-sm">
+              <span className="text-slate-400 text-xs">最大缺口</span>
               <span className="text-red-600 font-medium text-xs">
                 {timeline.worstMonth.month}月（−{disp(timeline.worstMonth.deficit, true)}）
               </span>
             </div>
           )}
           {timeline.incomeSpread > 0 && (
-            <div className="flex items-center gap-1.5 bg-slate-50 rounded-lg px-3 py-2 text-sm">
-              <span className="text-slate-500 text-xs">收入波動幅度</span>
+            <div className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-3 py-2 text-sm shadow-sm">
+              <span className="text-slate-400 text-xs">收入波動幅度</span>
               <span className="text-amber-600 font-medium text-xs">{disp(timeline.incomeSpread, true)}</span>
             </div>
           )}
