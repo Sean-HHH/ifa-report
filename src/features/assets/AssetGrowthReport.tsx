@@ -119,20 +119,20 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-sm">
-        <div className="bg-slate-50 rounded-xl p-4">
+        <div className="bg-white border border-slate-100 shadow-sm rounded-xl p-4">
           <div className="text-sm text-slate-500 mb-1">退休年齡</div>
           <div className="text-2xl font-bold text-slate-800">{client.retirementAge} 歲</div>
-          <div className="text-slate-500 text-xs mt-1">距今 {client.retirementAge - calcCurrentAge(client.birthYear)} 年</div>
+          <div className="text-slate-400 text-xs mt-1">距今 {client.retirementAge - calcCurrentAge(client.birthYear)} 年</div>
         </div>
-        <div className="bg-slate-50 rounded-xl p-4">
+        <div className="bg-white border border-slate-100 shadow-sm rounded-xl p-4">
           <div className="text-sm text-slate-500 mb-1">每月定期投入</div>
           <div className="text-2xl font-bold text-slate-800">{disp(client.monthlyContribution, true)}</div>
-          <div className="text-slate-500 text-xs mt-1">年化 {disp(client.monthlyContribution * 12, true)}</div>
+          <div className="text-slate-400 text-xs mt-1">年化 {disp(client.monthlyContribution * 12, true)}</div>
         </div>
       </div>
 
       {/* 投影假設說明 */}
-      <div className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2 space-y-0.5">
+      <div className="text-xs text-slate-400 bg-white border border-slate-100 rounded-lg px-3 py-2 space-y-0.5">
         <div>投資組合（不含不動產）報酬率：{client.customReturnRate != null ? fmtPct(client.customReturnRate * 100) + '（自訂）' : `${fmtPct(rates.conservative * 100)} / ${fmtPct(rates.base * 100)} / ${fmtPct(rates.aggressive * 100)}（依風險偏好）`}</div>
         <div>不動產年化增值率：{fmtPct(((client.realEstateReturnRate ?? client.globalInflationRate) * 100))}　·　通膨率：{fmtPct(client.globalInflationRate * 100)}</div>
       </div>

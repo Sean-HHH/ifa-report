@@ -67,7 +67,7 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
         <StatCard label="淨資產" value={disp(nw, true)} color={nw >= 0 ? 'blue' : 'red'} />
         <StatCard label="總資產" value={disp(totalInv, true)} color="green" />
         <StatCard label="總負債" value={disp(totalLiab, true)} color={totalLiab > 0 ? 'red' : 'green'} />
-        <div className={`rounded-xl p-3 border ${alloc.isConcentrated ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-100'}`}>
+        <div className={`rounded-xl p-3 border shadow-sm ${alloc.isConcentrated ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-100'}`}>
           <div className="text-xs text-slate-500 mb-1">最大單一持倉</div>
           {alloc.topHolding ? (
             <>
@@ -88,15 +88,15 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
         <div>
           <SectionTitle>資產分布 · 總計 {disp(totalInv, true)}</SectionTitle>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-50 rounded-xl p-3">
+            <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
               <div className="text-xs text-center text-slate-500 mb-2 font-medium">資產類別</div>
               <div className="h-44"><Pie data={catPie} options={PIE_OPTS} /></div>
             </div>
-            <div className="bg-slate-50 rounded-xl p-3">
+            <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
               <div className="text-xs text-center text-slate-500 mb-2 font-medium">幣別分布</div>
               <div className="h-44"><Pie data={curPie} options={PIE_OPTS} /></div>
             </div>
-            <div className="bg-slate-50 rounded-xl p-3">
+            <div className="bg-white rounded-xl p-3 border border-slate-100 shadow-sm">
               <div className="text-xs text-center text-slate-500 mb-2 font-medium">資產用途</div>
               <div className="h-44"><Pie data={purPie} options={PIE_OPTS} /></div>
             </div>
@@ -120,7 +120,7 @@ function Layer1({ client, rates, reportCurrency }: { client: ClientProfile } & F
                       {INVESTMENT_CATEGORY_LABELS[item.category]}
                     </span>
                     {item.currency && item.currency !== 'TWD' && (
-                      <span className="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded shrink-0">
+                      <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded shrink-0">
                         {item.currency}
                       </span>
                     )}
@@ -236,7 +236,7 @@ function LedgerHistory({ entries, bTotal, currentItems, activeSnap }: LedgerHist
       <div className="text-xs font-semibold text-slate-500 tracking-wide mb-3">本期交易明細</div>
 
       {/* Reconciliation summary */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs bg-slate-50 rounded-lg px-3 py-2 mb-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs bg-white border border-slate-100 shadow-sm rounded-lg px-3 py-2 mb-3">
         <span className="text-slate-500">期初 <span className="font-medium text-slate-700">{fmtWan(opening)}</span></span>
         <span className="text-slate-300">+</span>
         <span className="text-slate-500">
@@ -372,12 +372,12 @@ function Layer2({ client, rates, reportCurrency }: { client: ClientProfile; rate
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
           <span>比較起點</span>
           <select value={fromId} onChange={e => setFromId(e.target.value)}
-            className="border border-slate-200 rounded px-2 py-1 text-xs focus:border-blue-300 outline-none bg-white">
+            className="border border-slate-200 rounded px-2 py-1 text-xs outline-none bg-white">
             {snapshots.map(s => <option key={s.id} value={s.id}>{s.periodLabel} ({s.snapshotDate})</option>)}
           </select>
           <span>→ 比較終點</span>
           <select value={toId} onChange={e => setToId(e.target.value)}
-            className="border border-slate-200 rounded px-2 py-1 text-xs focus:border-blue-300 outline-none bg-white">
+            className="border border-slate-200 rounded px-2 py-1 text-xs outline-none bg-white">
             {snapshots.map(s => <option key={s.id} value={s.id}>{s.periodLabel} ({s.snapshotDate})</option>)}
           </select>
         </div>
@@ -389,7 +389,7 @@ function Layer2({ client, rates, reportCurrency }: { client: ClientProfile; rate
       </div>
 
       {/* Total assets */}
-      <div className="bg-slate-50 rounded-xl px-4 py-3">
+      <div className="bg-white border border-slate-100 shadow-sm rounded-xl px-4 py-3">
         <div className="text-xs text-slate-500 mb-1">總資產</div>
         <div className="flex items-baseline gap-2 flex-wrap">
           <span className="text-sm text-slate-500">{fmtWan(aTotal)}</span>
@@ -422,7 +422,7 @@ function Layer2({ client, rates, reportCurrency }: { client: ClientProfile; rate
                 ? (value >= 0 ? 'text-emerald-600' : 'text-red-500')
                 : (value >= 0 ? 'text-slate-700' : 'text-red-500')
               return (
-                <div key={label} className={`rounded-lg px-3 py-2 border ${primary ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
+                <div key={label} className={`rounded-lg px-3 py-2 border shadow-sm ${primary ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-slate-100'}`}>
                   <div className="text-xs text-slate-400 mb-0.5">{label}</div>
                   <div className={`text-sm font-semibold ${c}`}>
                     {signed && value !== 0 ? (value >= 0 ? '+' : '') : ''}{fmtWan(value)}
@@ -526,16 +526,16 @@ function Layer3({ client, rates, reportCurrency }: { client: ClientProfile } & F
                 <td className="py-2 pl-2 font-medium text-slate-700">{item.label}</td>
                 <td className="text-right text-slate-500">{fmtPct(item.targetPct)}</td>
                 <td className="text-right text-slate-600">{fmtPct(item.actualPct)}</td>
-                <td className={`text-right font-medium ${item.deviation > 0 ? 'text-orange-500' : item.deviation < 0 ? 'text-blue-500' : 'text-slate-400'}`}>
+                <td className={`text-right font-medium ${item.deviation > 0 ? 'text-orange-500' : item.deviation < 0 ? 'text-slate-500' : 'text-slate-400'}`}>
                   {item.deviation >= 0 ? '+' : ''}{fmtPct(item.deviation)}
                 </td>
-                <td className={`text-right pr-2 ${item.deviationAmount > 0 ? 'text-orange-500' : item.deviationAmount < 0 ? 'text-blue-500' : 'text-slate-400'}`}>
+                <td className={`text-right pr-2 ${item.deviationAmount > 0 ? 'text-orange-500' : item.deviationAmount < 0 ? 'text-slate-500' : 'text-slate-400'}`}>
                   {item.deviationAmount >= 0 ? '+' : ''}{disp(item.deviationAmount, true)}
                 </td>
                 <td className="text-right pr-2">
                   {item.action === 'ok' && <span className="text-xs text-emerald-500">✓ 容許內</span>}
                   {item.action === 'overweight' && <span className="text-xs text-amber-600 font-medium">⚠ 超配</span>}
-                  {item.action === 'underweight' && <span className="text-xs text-blue-500 font-medium">↑ 低配</span>}
+                  {item.action === 'underweight' && <span className="text-xs text-slate-500 font-medium">↑ 低配</span>}
                 </td>
               </tr>
             ))}
@@ -581,9 +581,10 @@ export function AssetReport({ client, rates, reportCurrency }: { client: ClientP
       <div className="flex gap-2">
         {layers.map(l => (
           <button key={l.id} onClick={() => setActiveLayer(l.id)}
+            style={activeLayer === l.id ? { background: 'var(--color-lime)', color: 'var(--color-text-primary)', fontWeight: 600 } : {}}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
               activeLayer === l.id
-                ? 'bg-blue-500 text-white'
+                ? ''
                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
             }`}>
             {l.label}
