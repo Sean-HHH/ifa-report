@@ -45,6 +45,8 @@
 | 資產成長雙池模型 | 流動資產（現金/股票/基金/債券/加密/其他）與不動產分池獨立成長；不動產使用 `realEstateReturnRate`（預設同通膨率）；流動池每年扣除重大支出後複利 | 不動產難以即時變現，與流動資產混算會高估流動性；重大支出衝擊只從流動池扣 |
 | 不動產不計入退休提領缺口 | `projectedUsableBase = projectedLiquidBase + lumpSum`；gap 比較與退休後模擬均以此為基準；不動產另列顯示 | 不動產通常為自住，退休時不一定能提領；高估可用資產對客戶有風險 |
 | 月退年金假設 | 名目固定（不隨通膨調升）；保守假設 | 台灣勞保月退有條件調升但非每年，保守估算讓缺口計算不低估；客戶接受後可視實際條件手動調整 |
+| 退休目標資產計算法 | 成長型年金現值法（PV of growing annuity）為主，SWR 法為輔助參考；`targetAsset = annualSpend × [1 − ((1+g)/(1+r))^n] / (r−g)`；`targetAssetSWR = annualSpend / withdrawalRate` 並排顯示 | SWR 隱含永續假設，對有限餘命高估需求；PV 法顯式建模通膨與報酬率，更精確反映實際退休規劃需求 |
+| 退休期重大支出 | 提領模擬連動 `majorExpenses`（發生年在退休期間者），從 `remaining` 扣除並觸發 liquidityWarning；`targetAsset` 額外加上退休期重大支出的折現值（pvMajor） | 退休前後重大支出應一致處理；確保缺口計算與提領模擬邏輯一致 |
 
 ---
 

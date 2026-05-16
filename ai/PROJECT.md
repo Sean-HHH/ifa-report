@@ -127,7 +127,7 @@ v1 → v2 → v3 → v4 → v5 → v6 → v7 → ... → v10 → v11 → v12 →
 
 **近期新增欄位（optional，migration 以 spread + fallback 處理，無須遞增版本）：**
 - `ClientProfile.realEstateReturnRate?: number` — 不動產年化增值率（預設同 globalInflationRate）
-- `ClientProfile.withdrawalRate?: number` — 退休安全提領率（預設 0.04）
+- `ClientProfile.withdrawalRate?: number` — 退休安全提領率（預設 0.04；現作為 SWR 參考值，targetAsset 改用 PV 年金法）
 - `ClientProfile.retirementLumpSum?: number` — 一次性退休金，退休時名目值（預設 0）
 - `ClientProfile.monthlyPension?: number` — 月退休年金，今日幣值（預設 0）
 - `AssetPeriodSnapshot.shareId?: string` — Supabase shared_snapshots 行 UUID；undefined = 未分享
