@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import {
-  BarChart, Bar, Cell, LineChart, Line, ComposedChart,
+  BarChart, Bar, Cell, Line, ComposedChart,
   CartesianGrid, XAxis, YAxis, Tooltip, Legend, ReferenceLine,
   ResponsiveContainer,
 } from 'recharts'
@@ -11,7 +11,8 @@ import { calcCashFlow, calcCashFlowProjection, calcMonthlyTimeline, convertCurre
 import type { FxRates } from '../fx/exchangeRate'
 import { StatCard } from '../../shared/StatCard'
 import { SectionTitle } from '../../shared/SectionTitle'
-import { ChartTooltip, CHART_TICK_STYLE, CHART_GRID_COLOR } from '../../shared/chartUtils'
+import { ChartTooltip } from '../../shared/chartUtils'
+import { CHART_TICK_STYLE, CHART_GRID_COLOR } from '../../shared/chartConstants'
 
 const INCOME_TYPE_COLORS: Record<IncomeType, string> = {
   fixed: 'bg-blue-100 text-blue-700',
@@ -79,17 +80,17 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
       <div className="grid grid-cols-3 gap-3">
         <StatCard
           label="帳面現金流"
-          value={disp(cf.netCashFlow, true)}
+          value={disp(cf.netCashFlow)}
           color={cf.netCashFlow >= 0 ? 'blue' : 'red'}
         />
         <StatCard
           label="真實現金流"
-          value={disp(cf.trueNetCashFlow, true)}
+          value={disp(cf.trueNetCashFlow)}
           color={cf.trueNetCashFlow >= 0 ? 'green' : 'red'}
         />
         <StatCard
           label="可投資現金流"
-          value={disp(cf.investibleCashFlow, true)}
+          value={disp(cf.investibleCashFlow)}
           color={cf.investibleCashFlow >= 0 ? 'purple' : 'red'}
         />
       </div>
@@ -159,23 +160,6 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
       {/* 5年現金流 Projection */}
       <div>
         <SectionTitle>5年現金流趨勢（通膨 {fmtPct(client.globalInflationRate * 100)}）</SectionTitle>
-        <div className="h-56 mb-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={projection.map(p => ({ year: String(p.year), 帳面: p.net, 真實: p.true_, 可投資: p.investible }))}
-              margin={{ top: 4, right: 8, bottom: 0, left: 8 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
-              <XAxis dataKey="year" tick={CHART_TICK_STYLE} />
-              <YAxis tickFormatter={v => disp(Number(v), true)} tick={CHART_TICK_STYLE} width={72} />
-              <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
-              <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
-              <Line type="monotone" dataKey="帳面" stroke="#3b82f6" dot={{ r: 3 }} strokeWidth={2} />
-              <Line type="monotone" dataKey="真實" stroke="#10b981" dot={{ r: 3 }} strokeWidth={2} />
-              <Line type="monotone" dataKey="可投資" stroke="#8b5cf6" dot={{ r: 3 }} strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
         {/* 年度表格 */}
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-slate-600">

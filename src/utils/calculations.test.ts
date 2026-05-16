@@ -208,10 +208,16 @@ describe('calcAssetGrowth', () => {
 // ── calcRetirement ───────────────────────────────────────────
 
 describe('calcRetirement', () => {
-  it('targetAsset = monthlyIncome × 12 × 25（25 倍法則）', () => {
+  it('targetAsset（PV 法）< targetAssetSWR（SWR 永續法）當退休後報酬 > 通膨', () => {
+    // moderate: baseRate=0.07, postRetirementRate=0.06, inflationRate=0.02 → rr > g → PV < SWR
     const c = makeClient({ targetMonthlyRetirementIncome: 50000 })
     const r = calcRetirement(c)
-    expect(r.targetAsset).toBe(50000 * 12 * 25)
+    expect(r.targetAsset).toBeGreaterThan(0)
+    expect(r.targetAssetSWR).toBeGreaterThan(0)
+    // 有限餘命（30年）且報酬率 > 通膨時，年金現值法需求 < SWR 永續法需求
+    expect(r.targetAsset).toBeLessThan(r.targetAssetSWR)
+    // SWR = 通膨調整後年費用 / 提領率
+    expect(r.targetAssetSWR).toBeCloseTo(r.netMonthlyNeeded_retirement * 12 / r.withdrawalRate, -2)
   })
 
   it('gap = targetAsset - projectedAssetBase', () => {
@@ -437,7 +443,8 @@ describe('E2E: 完整客戶財務規劃流程', () => {
 
     expect(cf.netCashFlow).toBeGreaterThan(0)
     expect(nw).toBe(2000000 + 500000 - 3000000)
-    expect(retirement.targetAsset).toBe(60000 * 12 * 25)
+    expect(retirement.targetAsset).toBeGreaterThan(0)
+    expect(retirement.targetAssetSWR).toBeCloseTo(retirement.netMonthlyNeeded_retirement * 12 / retirement.withdrawalRate, -2)
     expect(retirement.yearsToRetirement).toBe(30)
     expect(retirement.withdrawalYears[0].base).toBeCloseTo(retirement.projectedAssetBase, 0)
 

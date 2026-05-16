@@ -10,7 +10,8 @@ import { calcRetirement, convertCurrency, fmtAmount, fmtPct } from '../../utils/
 import type { FxRates } from '../fx/exchangeRate'
 import { StatCard } from '../../shared/StatCard'
 import { SectionTitle } from '../../shared/SectionTitle'
-import { ChartTooltip, CHART_TICK_STYLE, CHART_GRID_COLOR } from '../../shared/chartUtils'
+import { ChartTooltip } from '../../shared/chartUtils'
+import { CHART_TICK_STYLE, CHART_GRID_COLOR } from '../../shared/chartConstants'
 
 export function RetirementReport({ client, rates, reportCurrency }: { client: ClientProfile; rates: FxRates; reportCurrency: string }) {
   const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, rates)
@@ -50,7 +51,7 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
         />
         <StatCard
           label="需額外月儲蓄"
-          value={r.requiredMonthlySavings > 0 ? disp(r.requiredMonthlySavings, true) : '不需額外'}
+          value={r.requiredMonthlySavings > 0 ? disp(r.requiredMonthlySavings) : '不需額外'}
           color={r.requiredMonthlySavings > 0 ? 'orange' : 'green'}
         />
         <StatCard
@@ -129,22 +130,32 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
           <div className="text-sm font-semibold text-slate-600">月現金流拆解</div>
           <div className="flex justify-between text-xs text-slate-500">
             <span>目標月現金流（今日值）</span>
-            <span className="font-medium text-slate-700">{disp(client.targetMonthlyRetirementIncome, true)}</span>
+            <span className="font-medium text-slate-700">{disp(client.targetMonthlyRetirementIncome)}</span>
           </div>
           {r.monthlyPension > 0 && (
             <div className="flex justify-between text-xs text-slate-500">
               <span>月退年金（名目固定）</span>
-              <span className="font-medium text-emerald-600">−{disp(r.monthlyPension, true)}</span>
+              <span className="font-medium text-emerald-600">−{disp(r.monthlyPension)}</span>
             </div>
           )}
           <div className="flex justify-between text-xs text-slate-500">
             <span>需自籌概估（今日參考）</span>
-            <span className="font-medium text-slate-700">{disp(r.netMonthlyNeeded_today, true)}</span>
+            <span className="font-medium text-slate-700">{disp(r.netMonthlyNeeded_today)}</span>
           </div>
           <div className="flex justify-between text-xs font-semibold border-t border-slate-200 pt-2">
-            <span>退休時需自籌（名目值）</span>
-            <span className="text-slate-800">{disp(r.netMonthlyNeeded_retirement, true)}</span>
+            <span>退休時需自籌（名目，第 1 年）</span>
+            <span className="text-slate-800">{disp(r.netMonthlyNeeded_retirement)}</span>
           </div>
+          <div className="flex justify-between text-xs text-slate-500">
+            <span>退休末年需自籌（第 {client.retirementLifespan} 年，通膨調整後）</span>
+            <span className="font-medium text-slate-700">{disp(r.netMonthlyNeeded_finalYear)}</span>
+          </div>
+          {r.netMonthlyNeeded_finalYear > r.netMonthlyNeeded_retirement && (
+            <div className="flex justify-between text-xs text-amber-600 bg-amber-50 rounded px-2 py-1">
+              <span>通膨累積差距</span>
+              <span className="font-medium">+{disp(r.netMonthlyNeeded_finalYear - r.netMonthlyNeeded_retirement)}</span>
+            </div>
+          )}
         </div>
 
         {/* 提領策略 & 壽命 */}
@@ -157,12 +168,12 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
             <span className="font-medium">{r.targetEndAge} 歲</span>
           </div>
           <div className="flex justify-between text-xs text-slate-500">
-            <span>安全提領率</span>
-            <span className="font-medium">{fmtPct(r.withdrawalRate * 100)}</span>
-          </div>
-          <div className="flex justify-between text-xs text-slate-500">
-            <span>所需退休資金</span>
+            <span>所需退休資金（年金法）</span>
             <span className="font-medium">{disp(r.targetAsset, true)}</span>
+          </div>
+          <div className="flex justify-between text-xs text-slate-400">
+            <span>SWR 參考（{fmtPct(r.withdrawalRate * 100)} 法則）</span>
+            <span>{disp(r.targetAssetSWR, true)}</span>
           </div>
           <div className={`flex justify-between text-xs font-semibold border-t pt-2 ${survives ? 'border-emerald-200 text-emerald-700' : 'border-red-200 text-red-700'}`}>
             <span>流動資金耗盡時間</span>
@@ -173,8 +184,8 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
 
       {/* 假設說明 */}
       <div className="text-xs text-slate-400 bg-white border border-slate-100 rounded-lg px-3 py-2 space-y-0.5">
-        <div>退休後報酬率：{fmtPct(Math.max((client.customReturnRate ?? RISK_RETURN[client.riskProfile].base) - 0.01, 0.02) * 100)}（投資報酬率 −1%，最低 2%）　·　通膨率：{fmtPct(client.globalInflationRate * 100)}</div>
-        <div>月提領額每年依通膨調升　·　月退年金假設名目固定（不隨通膨調升）　·　不動產不計入退休提領</div>
+        <div>退休後報酬率：{fmtPct(Math.max((client.customReturnRate ?? RISK_RETURN[client.riskProfile].base) - 0.01, 0.02) * 100)}（投資報酬率 −1%，最低 2%） · 通膨率：{fmtPct(client.globalInflationRate * 100)}</div>
+        <div>月提領額每年依通膨調升 · 月退年金假設名目固定（不隨通膨調升） · 不動產不計入退休提領</div>
       </div>
 
       {/* 建議行動 */}

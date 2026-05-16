@@ -9,7 +9,8 @@ import { RISK_RETURN, calcCurrentAge } from '../../types/client'
 import type { FxRates } from '../fx/exchangeRate'
 import { StatCard } from '../../shared/StatCard'
 import { SectionTitle } from '../../shared/SectionTitle'
-import { ChartTooltip, CHART_TICK_STYLE, CHART_GRID_COLOR } from '../../shared/chartUtils'
+import { ChartTooltip } from '../../shared/chartUtils'
+import { CHART_TICK_STYLE, CHART_GRID_COLOR } from '../../shared/chartConstants'
 
 export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { client: ClientProfile; rates: FxRates; reportCurrency: string }) {
   const data = useMemo(() => calcAssetGrowth(client), [client])
@@ -75,7 +76,7 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
         </div>
         <div className="bg-white border border-slate-100 shadow-sm rounded-xl p-4">
           <div className="text-sm text-slate-500 mb-1">每月定期投入</div>
-          <div className="text-2xl font-bold text-slate-800">{disp(client.monthlyContribution, true)}</div>
+          <div className="text-2xl font-bold text-slate-800">{disp(client.monthlyContribution)}</div>
           <div className="text-slate-400 text-xs mt-1">年化 {disp(client.monthlyContribution * 12, true)}</div>
         </div>
       </div>
@@ -83,7 +84,7 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
       {/* 投影假設說明 */}
       <div className="text-xs text-slate-400 bg-white border border-slate-100 rounded-lg px-3 py-2 space-y-0.5">
         <div>投資組合（不含不動產）報酬率：{client.customReturnRate != null ? fmtPct(client.customReturnRate * 100) + '（自訂）' : `${fmtPct(rates.conservative * 100)} / ${fmtPct(rates.base * 100)} / ${fmtPct(rates.aggressive * 100)}（依風險偏好）`}</div>
-        <div>不動產年化增值率：{fmtPct(((client.realEstateReturnRate ?? client.globalInflationRate) * 100))}　·　通膨率：{fmtPct(client.globalInflationRate * 100)}</div>
+        <div>不動產年化增值率：{fmtPct(((client.realEstateReturnRate ?? client.globalInflationRate) * 100))} · 通膨率：{fmtPct(client.globalInflationRate * 100)}</div>
       </div>
 
       {client.majorExpenses.length > 0 && (

@@ -109,6 +109,7 @@ function migrate(raw: any): ClientProfile {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const v14LedgerEntries = (topLedgerEntries as any[]).map((entry: any) => ({
     ...entry,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     lines: (entry.lines ?? []).map((line: any) => ({
       ...line,
       type: line.type ?? 'buy',
