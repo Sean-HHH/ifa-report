@@ -15,7 +15,7 @@ import { CHART_TICK_STYLE, CHART_GRID_COLOR } from '../../shared/chartConstants'
 
 export function RetirementReport({ client, rates, reportCurrency }: { client: ClientProfile; rates: FxRates; reportCurrency: string }) {
   const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, rates)
-  const disp = (n: number, compact = false) => fmtAmount(rc(n), reportCurrency, compact)
+  const disp = (n: number) => fmtAmount(rc(n), reportCurrency)
   const r = useMemo(() => calcRetirement(client), [client])
   const isOnTrack = r.gap <= 0
 
@@ -45,7 +45,7 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
         <StatCard label="距退休年數" value={`${r.yearsToRetirement} 年`} color="blue" />
         <StatCard
           label="退休缺口"
-          value={r.gap > 0 ? disp(r.gap, true) : '已達標 ✓'}
+          value={r.gap > 0 ? disp(r.gap) : '已達標 ✓'}
           sub={isOnTrack ? undefined : '需補足金額（名目值）'}
           color={isOnTrack ? 'green' : 'red'}
         />
@@ -71,8 +71,8 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
               <BarChart data={gapBarData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} vertical={false} />
                 <XAxis dataKey="name" tick={CHART_TICK_STYLE} />
-                <YAxis tickFormatter={v => disp(Number(v), true)} tick={CHART_TICK_STYLE} width={72} />
-                <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
+                <YAxis tickFormatter={v => disp(Number(v))} tick={CHART_TICK_STYLE} width={72} />
+                <Tooltip content={<ChartTooltip formatter={v => disp(v)} />} />
                 <Bar dataKey="value" name="金額" radius={[6, 6, 0, 0]} maxBarSize={64}>
                   {gapBarData.map((entry, i) => (
                     <Cell key={i} fill={entry.fill} />
@@ -89,8 +89,8 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
               <AreaChart data={withdrawLineData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
                 <XAxis dataKey="age" tick={CHART_TICK_STYLE} interval="preserveStartEnd" />
-                <YAxis tickFormatter={v => disp(Number(v), true)} tick={CHART_TICK_STYLE} width={72} />
-                <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
+                <YAxis tickFormatter={v => disp(Number(v))} tick={CHART_TICK_STYLE} width={72} />
+                <Tooltip content={<ChartTooltip formatter={v => disp(v)} />} />
                 <Area type="monotone" dataKey="流動資產" stroke={withdrawLineColor} fill={withdrawFill} strokeWidth={2} dot={false} />
               </AreaChart>
             </ResponsiveContainer>
@@ -105,22 +105,22 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
           <div className="text-sm font-semibold text-slate-600">退休時資產來源</div>
           <div className="flex justify-between text-xs text-slate-500">
             <span>流動資產</span>
-            <span className="font-medium text-slate-700">{disp(r.projectedLiquidBase, true)}</span>
+            <span className="font-medium text-slate-700">{disp(r.projectedLiquidBase)}</span>
           </div>
           {r.retirementLumpSum > 0 && (
             <div className="flex justify-between text-xs text-slate-500">
               <span>一次性退休金</span>
-              <span className="font-medium text-emerald-600">+{disp(r.retirementLumpSum, true)}</span>
+              <span className="font-medium text-emerald-600">+{disp(r.retirementLumpSum)}</span>
             </div>
           )}
           <div className="flex justify-between text-xs font-semibold border-t border-slate-200 pt-2">
             <span>可用於提領小計</span>
-            <span className="text-slate-800">{disp(r.projectedUsableBase, true)}</span>
+            <span className="text-slate-800">{disp(r.projectedUsableBase)}</span>
           </div>
           {r.projectedRealEstateBase > 0 && (
             <div className="flex justify-between text-xs text-slate-400 pt-1">
               <span>不動產（不計入缺口）</span>
-              <span>{disp(r.projectedRealEstateBase, true)}</span>
+              <span>{disp(r.projectedRealEstateBase)}</span>
             </div>
           )}
         </div>
@@ -169,11 +169,11 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
           </div>
           <div className="flex justify-between text-xs text-slate-500">
             <span>所需退休資金（年金法）</span>
-            <span className="font-medium">{disp(r.targetAsset, true)}</span>
+            <span className="font-medium">{disp(r.targetAsset)}</span>
           </div>
           <div className="flex justify-between text-xs text-slate-400">
             <span>SWR 參考（{fmtPct(r.withdrawalRate * 100)} 法則）</span>
-            <span>{disp(r.targetAssetSWR, true)}</span>
+            <span>{disp(r.targetAssetSWR)}</span>
           </div>
           <div className={`flex justify-between text-xs font-semibold border-t pt-2 ${survives ? 'border-emerald-200 text-emerald-700' : 'border-red-200 text-red-700'}`}>
             <span>流動資金耗盡時間</span>
@@ -193,7 +193,7 @@ export function RetirementReport({ client, rates, reportCurrency }: { client: Cl
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
           <div className="text-sm font-semibold text-amber-700 mb-1">建議行動</div>
           <ul className="text-sm text-amber-600 space-y-1 list-disc list-inside">
-            <li>每月額外儲蓄 {disp(r.requiredMonthlySavings, true)} 可填補缺口</li>
+            <li>每月額外儲蓄 {disp(r.requiredMonthlySavings)} 可填補缺口</li>
             <li>考慮提高投資組合的風險配置以爭取更高報酬</li>
             <li>延後退休年齡或降低月退休現金流目標亦可縮小缺口</li>
             {r.monthlyPension === 0 && <li>若有勞保月退或其他年金收入，填入後可降低需自籌金額</li>}

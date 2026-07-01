@@ -1,7 +1,7 @@
 import type { ClientProfile, ExpenseItem, ExpenseCategory, PayFrequency } from '../../../types/client'
 import { EXPENSE_CATEGORY_LABELS, PAY_FREQUENCY_LABELS } from '../../../types/client'
 import { Section, AddBtn, NoteField } from '../shared'
-import { quarterlyMonths, quarterlyAnchor, handleFrequencyChange } from '../utils'
+import { handleFrequencyChange } from '../utils'
 
 interface Props {
   c: ClientProfile
@@ -49,14 +49,21 @@ export function ExpenseTab({ c, patch }: Props) {
               {(item.frequency === 'quarterly') && (
                 <>
                   <span className="text-xs text-slate-400">發生月</span>
-                  <select
-                    className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs focus:border-blue-300 outline-none"
-                    value={quarterlyAnchor(item.payMonths)}
-                    onChange={e => update(i, { payMonths: quarterlyMonths(Number(e.target.value)) })}>
-                    <option value={1}>1/4/7/10月</option>
-                    <option value={2}>2/5/8/11月</option>
-                    <option value={3}>3/6/9/12月</option>
-                  </select>
+                  {[0, 1, 2, 3].map(idx => (
+                    <select
+                      key={idx}
+                      className="bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-xs focus:border-blue-300 outline-none"
+                      value={(item.payMonths ?? [3, 6, 9, 12])[idx]}
+                      onChange={e => {
+                        const months = [...(item.payMonths ?? [3, 6, 9, 12])]
+                        months[idx] = Number(e.target.value)
+                        update(i, { payMonths: months })
+                      }}>
+                      {Array.from({ length: 12 }, (_, m) => (
+                        <option key={m + 1} value={m + 1}>{m + 1}月</option>
+                      ))}
+                    </select>
+                  ))}
                 </>
               )}
               {(item.frequency === 'annual') && (

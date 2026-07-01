@@ -7,7 +7,7 @@ import {
 import type { ClientProfile } from '../../types/client'
 import { INCOME_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '../../types/client'
 import type { IncomeType, ExpenseCategory } from '../../types/client'
-import { calcCashFlow, calcCashFlowProjection, calcMonthlyTimeline, convertCurrency, fmtAmount, fmtPct } from '../../utils/calculations'
+import { calcCashFlow, calcCashFlowProjection, calcMonthlyTimeline, calcRemainingYearCashFlow, convertCurrency, fmtAmount, fmtPct } from '../../utils/calculations'
 import type { FxRates } from '../fx/exchangeRate'
 import { StatCard } from '../../shared/StatCard'
 import { SectionTitle } from '../../shared/SectionTitle'
@@ -35,10 +35,16 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
   const cf = useMemo(() => calcCashFlow(client), [client])
   const projection = useMemo(() => calcCashFlowProjection(client), [client])
   const timeline = useMemo(() => calcMonthlyTimeline(client), [client])
+  const planStartMonth = client.planStartMonth ?? 1
+  const isPartialYear = planStartMonth > 1
+  const remaining = useMemo(
+    () => isPartialYear ? calcRemainingYearCashFlow(client) : null,
+    [client, isPartialYear]
+  )
 
   // All income/expense are TWD; convert for display
   const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, rates)
-  const disp = (n: number, compact = false) => fmtAmount(rc(n), reportCurrency, compact)
+  const disp = (n: number) => fmtAmount(rc(n), reportCurrency)
 
   const { expenseByCategory: ec, incomeByType: it } = cf
 
@@ -95,6 +101,48 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
         />
       </div>
 
+      {/* 今年剩餘期間（規劃起點 > 1 月時顯示） */}
+      {isPartialYear && remaining && (
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-3">
+          <div className="text-sm font-semibold text-amber-700">
+            今年剩餘期間（{planStartMonth} 月 – 12 月，共 {remaining.remainingMonths} 個月）
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-lg p-3 border border-amber-100">
+              <div className="text-xs text-slate-400 mb-1">剩餘收入合計</div>
+              <div className="text-base font-bold text-slate-700">{disp(remaining.remainingTotalIncome)}</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-amber-100">
+              <div className="text-xs text-slate-400 mb-1">剩餘支出合計</div>
+              <div className="text-base font-bold text-slate-700">{disp(remaining.remainingTotalExpenses)}</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-amber-100">
+              <div className="text-xs text-slate-400 mb-1">剩餘淨現金流</div>
+              <div className={`text-base font-bold ${remaining.remainingNetTotal >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                {disp(remaining.remainingNetTotal)}
+              </div>
+            </div>
+          </div>
+          {(remaining.alreadyOccurredExpenses.length > 0 || remaining.alreadyOccurredIncomes.length > 0) && (
+            <div className="text-xs text-amber-700 space-y-1">
+              {remaining.alreadyOccurredExpenses.length > 0 && (
+                <div>
+                  <span className="font-medium">今年已發生支出（不計入上方）：</span>
+                  {remaining.alreadyOccurredExpenses.join('、')}
+                </div>
+              )}
+              {remaining.alreadyOccurredIncomes.length > 0 && (
+                <div>
+                  <span className="font-medium">今年已發生收入（不計入上方）：</span>
+                  {remaining.alreadyOccurredIncomes.join('、')}
+                </div>
+              )}
+              <div className="text-slate-500">若上半年收入已計入資產餘額，請確認資產欄位無重複。</div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 三流瀑布圖 */}
       <div>
         <SectionTitle>逐層扣除：固定收入 → 真實現金流 → 可投資現金流</SectionTitle>
@@ -103,8 +151,8 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
             <BarChart data={waterfallData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} vertical={false} />
               <XAxis dataKey="label" tick={CHART_TICK_STYLE} />
-              <YAxis tickFormatter={v => disp(Number(v), true)} tick={CHART_TICK_STYLE} width={72} />
-              <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
+              <YAxis tickFormatter={v => disp(Number(v))} tick={CHART_TICK_STYLE} width={72} />
+              <Tooltip content={<ChartTooltip formatter={v => disp(v)} />} />
               <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1} />
               <Bar dataKey="value" name="金額" radius={[4, 4, 0, 0]} maxBarSize={52}>
                 {waterfallData.map((entry, i) => (
@@ -176,10 +224,10 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
               {projection.map((p, i) => (
                 <tr key={p.year} className={i % 2 === 0 ? 'bg-slate-50/50' : ''}>
                   <td className="py-1.5 pr-3 font-medium">{p.year}{i === 0 ? ' (現在)' : ''}</td>
-                  <td className="text-right py-1.5 pr-3">{disp(p.totalIncome, true)}</td>
-                  <td className="text-right py-1.5 pr-3 text-blue-600">{disp(p.net, true)}</td>
-                  <td className="text-right py-1.5 pr-3 text-emerald-600">{disp(p.true_, true)}</td>
-                  <td className="text-right py-1.5 text-violet-600">{disp(p.investible, true)}</td>
+                  <td className="text-right py-1.5 pr-3">{disp(p.totalIncome)}</td>
+                  <td className="text-right py-1.5 pr-3 text-blue-600">{disp(p.net)}</td>
+                  <td className="text-right py-1.5 pr-3 text-emerald-600">{disp(p.true_)}</td>
+                  <td className="text-right py-1.5 text-violet-600">{disp(p.investible)}</td>
                 </tr>
               ))}
             </tbody>
@@ -216,7 +264,7 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
                     </div>
                   </td>
                   <td className="py-2.5 text-right font-medium text-slate-700 whitespace-nowrap align-top">
-                    {disp(item.amount, true)}
+                    {disp(item.amount)}
                     {item.frequency && item.frequency !== 'monthly' && (
                       <span className="text-xs text-slate-400 font-normal ml-1">
                         /{item.frequency === 'quarterly' ? '季' : '年'}
@@ -256,7 +304,7 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
                     </div>
                   </td>
                   <td className="py-2.5 text-right font-medium text-slate-700 whitespace-nowrap align-top">
-                    {disp(e.amount, true)}
+                    {disp(e.amount)}
                     {e.frequency && e.frequency !== 'monthly' && (
                       <span className="text-xs text-slate-400 font-normal ml-1">
                         /{e.frequency === 'quarterly' ? '季' : '年'}
@@ -294,14 +342,14 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
             <div className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-3 py-2 text-sm shadow-sm">
               <span className="text-slate-400 text-xs">最大缺口</span>
               <span className="text-red-600 font-medium text-xs">
-                {timeline.worstMonth.month}月（−{disp(timeline.worstMonth.deficit, true)}）
+                {timeline.worstMonth.month}月（−{disp(timeline.worstMonth.deficit)}）
               </span>
             </div>
           )}
           {timeline.incomeSpread > 0 && (
             <div className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-3 py-2 text-sm shadow-sm">
               <span className="text-slate-400 text-xs">收入波動幅度</span>
-              <span className="text-amber-600 font-medium text-xs">{disp(timeline.incomeSpread, true)}</span>
+              <span className="text-amber-600 font-medium text-xs">{disp(timeline.incomeSpread)}</span>
             </div>
           )}
         </div>
@@ -316,19 +364,24 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
                 月支出: m.expense,
                 淨現金流: m.net,
                 isCrunch: m.isCrunch,
+                isPast: m.isPast,
               }))}
               margin={{ top: 4, right: 8, bottom: 0, left: 8 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
               <XAxis dataKey="month" tick={CHART_TICK_STYLE} />
-              <YAxis tickFormatter={v => disp(Number(v), true)} tick={CHART_TICK_STYLE} width={72} />
-              <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
+              <YAxis tickFormatter={v => disp(Number(v))} tick={CHART_TICK_STYLE} width={72} />
+              <Tooltip content={<ChartTooltip formatter={v => disp(v)} />} />
               <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
               <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1} />
-              <Bar dataKey="月收入" fill="rgba(16,185,129,0.7)" radius={[3, 3, 0, 0]} maxBarSize={20} />
+              <Bar dataKey="月收入" radius={[3, 3, 0, 0]} maxBarSize={20}>
+                {timeline.months.map((m, i) => (
+                  <Cell key={i} fill={m.isPast ? 'rgba(148,163,184,0.35)' : 'rgba(16,185,129,0.7)'} />
+                ))}
+              </Bar>
               <Bar dataKey="月支出" radius={[3, 3, 0, 0]} maxBarSize={20}>
                 {timeline.months.map((m, i) => (
-                  <Cell key={i} fill={m.isCrunch ? 'rgba(239,68,68,0.8)' : 'rgba(251,191,36,0.7)'} />
+                  <Cell key={i} fill={m.isPast ? 'rgba(148,163,184,0.25)' : m.isCrunch ? 'rgba(239,68,68,0.8)' : 'rgba(251,191,36,0.7)'} />
                 ))}
               </Bar>
               <Line type="monotone" dataKey="淨現金流" stroke="#3b82f6" dot={{ r: 3 }} strokeWidth={2} />

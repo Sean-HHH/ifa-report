@@ -59,7 +59,10 @@ export function calcAssetGrowth(c: ClientProfile, years = 30): GrowthYear[] {
   const reRate = c.realEstateReturnRate ?? c.globalInflationRate ?? 0.02
 
   const currentAge = calcCurrentAge(c.birthYear)
-  const currentYear = new Date().getFullYear()
+  const currentYear = c.planStartYear ?? new Date().getFullYear()
+  const planStartMonth = c.planStartMonth ?? 1
+  const isPartialYear = planStartMonth > 1
+  const remainingMonths = 13 - planStartMonth  // 12 when full year
   const monthly = c.monthlyContribution
 
   // 拆分液態池 vs 不動產池
@@ -80,8 +83,14 @@ export function calcAssetGrowth(c: ClientProfile, years = 30): GrowthYear[] {
 
   for (let y = 0; y < years; y++) {
     const targetYear = currentYear + y
+
+    // 重大支出過濾：若為今年（y=0）且指定月份已過，不扣
     const majorOut = c.majorExpenses
-      .filter(e => e.year === targetYear)
+      .filter(e => {
+        if (e.year !== targetYear) return false
+        if (y === 0 && isPartialYear && e.month !== undefined && e.month < planStartMonth) return false
+        return true
+      })
       .reduce((s, e) => s + e.amount * Math.pow(1 + c.globalInflationRate, y), 0)
 
     // 流動性警示：基準情境的液態淨值不足以支付重大支出
@@ -100,12 +109,20 @@ export function calcAssetGrowth(c: ClientProfile, years = 30): GrowthYear[] {
       warningExpense: liquidityWarning ? majorOut : 0,
     })
 
-    // 重大支出從液態池扣，不動產不動
-    lcv = (lcv - majorOut) * (1 + effectiveRates.conservative) + monthly * 12
-    lbv = (lbv - majorOut) * (1 + effectiveRates.base) + monthly * 12
-    lav = (lav - majorOut) * (1 + effectiveRates.aggressive) + monthly * 12
-    re = re * (1 + reRate)
-    contributed += monthly * 12
+    // year 0 部分年度：報酬率與投入月數依剩餘月份折算
+    const yearFraction = y === 0 && isPartialYear ? remainingMonths / 12 : 1
+    const yearMonths = y === 0 && isPartialYear ? remainingMonths : 12
+    const yr = y === 0 && isPartialYear ? {
+      conservative: Math.pow(1 + effectiveRates.conservative, yearFraction) - 1,
+      base:         Math.pow(1 + effectiveRates.base, yearFraction) - 1,
+      aggressive:   Math.pow(1 + effectiveRates.aggressive, yearFraction) - 1,
+    } : effectiveRates
+
+    lcv = (lcv - majorOut) * (1 + yr.conservative) + monthly * yearMonths
+    lbv = (lbv - majorOut) * (1 + yr.base) + monthly * yearMonths
+    lav = (lav - majorOut) * (1 + yr.aggressive) + monthly * yearMonths
+    re = re * (Math.pow(1 + reRate, yearFraction))
+    contributed += monthly * yearMonths
   }
 
   return result
@@ -140,7 +157,7 @@ export function calcAssetAllocation(c: ClientProfile, rates?: FxRates, reportCur
     const cur = item.currency ?? 'TWD'
     byCurrency[cur] = { amount: (byCurrency[cur]?.amount ?? 0) + converted, pct: 0 }
 
-    const pur = item.purpose ?? 'growth'
+    const pur = item.purpose ?? (item.category === 'cash' ? 'emergency' : 'growth')
     byPurpose[pur] = { amount: (byPurpose[pur]?.amount ?? 0) + converted, pct: 0 }
   }
 

@@ -93,6 +93,7 @@ export interface MonthlyMonth {
   expense: number
   net: number
   isCrunch: boolean
+  isPast: boolean  // month < planStartMonth
 }
 
 export interface MonthlyTimelineResult {
@@ -112,6 +113,7 @@ function resolvePayMonths(freq: PayFrequency, payMonths?: number[]): number[] | 
 
 export function calcMonthlyTimeline(c: ClientProfile): MonthlyTimelineResult {
   const months: MonthlyMonth[] = []
+  const startMonth = c.planStartMonth ?? 1
 
   for (let m = 1; m <= 12; m++) {
     let income = 0
@@ -130,7 +132,7 @@ export function calcMonthlyTimeline(c: ClientProfile): MonthlyTimelineResult {
     }
 
     const net = income - expense
-    months.push({ month: m, income, expense, net, isCrunch: net < 0 })
+    months.push({ month: m, income, expense, net, isCrunch: net < 0, isPast: m < startMonth })
   }
 
   const crunchMonths = months.filter(m => m.isCrunch).map(m => m.month)
@@ -147,4 +149,63 @@ export function calcMonthlyTimeline(c: ClientProfile): MonthlyTimelineResult {
   const incomeSpread = Math.max(...incomes) - Math.min(...incomes)
 
   return { months, crunchMonths, needsBridging: crunchMonths.length > 0, worstMonth, bestMonth, incomeSpread }
+}
+
+export interface RemainingYearResult {
+  remainingMonths: number
+  remainingTotalIncome: number
+  remainingTotalExpenses: number
+  remainingNetTotal: number
+  alreadyOccurredIncomes: string[]
+  alreadyOccurredExpenses: string[]
+}
+
+export function calcRemainingYearCashFlow(c: ClientProfile): RemainingYearResult {
+  const startMonth = c.planStartMonth ?? 1
+  const remainingMonths = 13 - startMonth
+
+  let remainingTotalIncome = 0
+  const alreadyOccurredIncomes: string[] = []
+
+  for (const item of c.incomes) {
+    const freq = item.frequency ?? 'monthly'
+    if (freq === 'monthly') {
+      remainingTotalIncome += item.amount * remainingMonths
+    } else {
+      const pay = resolvePayMonths(freq, item.payMonths)!
+      const future = pay.filter(m => m >= startMonth)
+      if (future.length === 0) {
+        alreadyOccurredIncomes.push(item.label)
+      } else {
+        remainingTotalIncome += item.amount * future.length
+      }
+    }
+  }
+
+  let remainingTotalExpenses = 0
+  const alreadyOccurredExpenses: string[] = []
+
+  for (const item of c.expenses) {
+    const freq = item.frequency ?? 'monthly'
+    if (freq === 'monthly') {
+      remainingTotalExpenses += item.amount * remainingMonths
+    } else {
+      const pay = resolvePayMonths(freq, item.payMonths)!
+      const future = pay.filter(m => m >= startMonth)
+      if (future.length === 0) {
+        alreadyOccurredExpenses.push(item.label)
+      } else {
+        remainingTotalExpenses += item.amount * future.length
+      }
+    }
+  }
+
+  return {
+    remainingMonths,
+    remainingTotalIncome,
+    remainingTotalExpenses,
+    remainingNetTotal: remainingTotalIncome - remainingTotalExpenses,
+    alreadyOccurredIncomes,
+    alreadyOccurredExpenses,
+  }
 }
