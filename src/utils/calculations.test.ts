@@ -250,25 +250,24 @@ describe('calcRetirement', () => {
 // ── fmtNTD ───────────────────────────────────────────────────
 
 describe('fmtNTD', () => {
-  it('compact=false 輸出完整貨幣格式', () => {
+  it('輸出完整貨幣格式含千分位', () => {
     expect(fmtNTD(100000)).toContain('100,000')
   })
 
-  it('compact=true, ≥ 1 億 → 顯示「億」', () => {
-    expect(fmtNTD(150000000, true)).toBe('1.5 億')
+  it('大數字不縮寫，保留千分位', () => {
+    expect(fmtNTD(150000000)).toContain('150,000,000')
   })
 
-  it('compact=true, ≥ 1 萬 → 顯示「萬」', () => {
-    expect(fmtNTD(80000, true)).toBe('8 萬')
+  it('萬元級別完整顯示', () => {
+    expect(fmtNTD(80000)).toContain('80,000')
   })
 
-  it('compact=true, < 1 萬 → 完整數字', () => {
-    const result = fmtNTD(5000, true)
-    expect(result).toContain('5,000')
+  it('千元以下完整數字', () => {
+    expect(fmtNTD(5000)).toContain('5,000')
   })
 
-  it('負數 compact 顯示正確', () => {
-    expect(fmtNTD(-20000, true)).toBe('-2 萬')
+  it('負數顯示正確', () => {
+    expect(fmtNTD(-20000)).toContain('-20,000')
   })
 })
 

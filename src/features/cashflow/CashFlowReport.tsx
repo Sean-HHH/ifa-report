@@ -44,7 +44,7 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
 
   // All income/expense are TWD; convert for display
   const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, rates)
-  const disp = (n: number, compact = false) => fmtAmount(rc(n), reportCurrency, compact)
+  const disp = (n: number) => fmtAmount(rc(n), reportCurrency)
 
   const { expenseByCategory: ec, incomeByType: it } = cf
 
@@ -110,16 +110,16 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-white rounded-lg p-3 border border-amber-100">
               <div className="text-xs text-slate-400 mb-1">剩餘收入合計</div>
-              <div className="text-base font-bold text-slate-700">{disp(remaining.remainingTotalIncome, true)}</div>
+              <div className="text-base font-bold text-slate-700">{disp(remaining.remainingTotalIncome)}</div>
             </div>
             <div className="bg-white rounded-lg p-3 border border-amber-100">
               <div className="text-xs text-slate-400 mb-1">剩餘支出合計</div>
-              <div className="text-base font-bold text-slate-700">{disp(remaining.remainingTotalExpenses, true)}</div>
+              <div className="text-base font-bold text-slate-700">{disp(remaining.remainingTotalExpenses)}</div>
             </div>
             <div className="bg-white rounded-lg p-3 border border-amber-100">
               <div className="text-xs text-slate-400 mb-1">剩餘淨現金流</div>
               <div className={`text-base font-bold ${remaining.remainingNetTotal >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                {disp(remaining.remainingNetTotal, true)}
+                {disp(remaining.remainingNetTotal)}
               </div>
             </div>
           </div>
@@ -151,8 +151,8 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
             <BarChart data={waterfallData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} vertical={false} />
               <XAxis dataKey="label" tick={CHART_TICK_STYLE} />
-              <YAxis tickFormatter={v => disp(Number(v), true)} tick={CHART_TICK_STYLE} width={72} />
-              <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
+              <YAxis tickFormatter={v => disp(Number(v))} tick={CHART_TICK_STYLE} width={72} />
+              <Tooltip content={<ChartTooltip formatter={v => disp(v)} />} />
               <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1} />
               <Bar dataKey="value" name="金額" radius={[4, 4, 0, 0]} maxBarSize={52}>
                 {waterfallData.map((entry, i) => (
@@ -224,10 +224,10 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
               {projection.map((p, i) => (
                 <tr key={p.year} className={i % 2 === 0 ? 'bg-slate-50/50' : ''}>
                   <td className="py-1.5 pr-3 font-medium">{p.year}{i === 0 ? ' (現在)' : ''}</td>
-                  <td className="text-right py-1.5 pr-3">{disp(p.totalIncome, true)}</td>
-                  <td className="text-right py-1.5 pr-3 text-blue-600">{disp(p.net, true)}</td>
-                  <td className="text-right py-1.5 pr-3 text-emerald-600">{disp(p.true_, true)}</td>
-                  <td className="text-right py-1.5 text-violet-600">{disp(p.investible, true)}</td>
+                  <td className="text-right py-1.5 pr-3">{disp(p.totalIncome)}</td>
+                  <td className="text-right py-1.5 pr-3 text-blue-600">{disp(p.net)}</td>
+                  <td className="text-right py-1.5 pr-3 text-emerald-600">{disp(p.true_)}</td>
+                  <td className="text-right py-1.5 text-violet-600">{disp(p.investible)}</td>
                 </tr>
               ))}
             </tbody>
@@ -264,7 +264,7 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
                     </div>
                   </td>
                   <td className="py-2.5 text-right font-medium text-slate-700 whitespace-nowrap align-top">
-                    {disp(item.amount, true)}
+                    {disp(item.amount)}
                     {item.frequency && item.frequency !== 'monthly' && (
                       <span className="text-xs text-slate-400 font-normal ml-1">
                         /{item.frequency === 'quarterly' ? '季' : '年'}
@@ -304,7 +304,7 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
                     </div>
                   </td>
                   <td className="py-2.5 text-right font-medium text-slate-700 whitespace-nowrap align-top">
-                    {disp(e.amount, true)}
+                    {disp(e.amount)}
                     {e.frequency && e.frequency !== 'monthly' && (
                       <span className="text-xs text-slate-400 font-normal ml-1">
                         /{e.frequency === 'quarterly' ? '季' : '年'}
@@ -342,14 +342,14 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
             <div className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-3 py-2 text-sm shadow-sm">
               <span className="text-slate-400 text-xs">最大缺口</span>
               <span className="text-red-600 font-medium text-xs">
-                {timeline.worstMonth.month}月（−{disp(timeline.worstMonth.deficit, true)}）
+                {timeline.worstMonth.month}月（−{disp(timeline.worstMonth.deficit)}）
               </span>
             </div>
           )}
           {timeline.incomeSpread > 0 && (
             <div className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-lg px-3 py-2 text-sm shadow-sm">
               <span className="text-slate-400 text-xs">收入波動幅度</span>
-              <span className="text-amber-600 font-medium text-xs">{disp(timeline.incomeSpread, true)}</span>
+              <span className="text-amber-600 font-medium text-xs">{disp(timeline.incomeSpread)}</span>
             </div>
           )}
         </div>
@@ -370,8 +370,8 @@ export function CashFlowReport({ client, rates, reportCurrency }: { client: Clie
             >
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
               <XAxis dataKey="month" tick={CHART_TICK_STYLE} />
-              <YAxis tickFormatter={v => disp(Number(v), true)} tick={CHART_TICK_STYLE} width={72} />
-              <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
+              <YAxis tickFormatter={v => disp(Number(v))} tick={CHART_TICK_STYLE} width={72} />
+              <Tooltip content={<ChartTooltip formatter={v => disp(v)} />} />
               <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
               <ReferenceLine y={0} stroke="#94a3b8" strokeWidth={1} />
               <Bar dataKey="月收入" radius={[3, 3, 0, 0]} maxBarSize={20}>

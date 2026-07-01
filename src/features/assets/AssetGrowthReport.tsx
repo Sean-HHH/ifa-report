@@ -17,7 +17,7 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
   const rates = RISK_RETURN[client.riskProfile]
   const nw = useMemo(() => netWorth(client), [client])
   const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, fxRates)
-  const disp = (n: number, compact = false) => fmtAmount(rc(n), reportCurrency, compact)
+  const disp = (n: number) => fmtAmount(rc(n), reportCurrency)
 
   const warnings = useMemo(() => data.filter(d => d.liquidityWarning), [data])
 
@@ -36,9 +36,9 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
       <h2 className="text-lg font-bold text-slate-800">資產成長路徑</h2>
 
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label={`保守情境 (${fmtPct(rates.conservative * 100)})`} value={disp(last?.conservative ?? 0, true)} color="orange" />
-        <StatCard label={`基準情境 (${fmtPct(rates.base * 100)})`} value={disp(last?.base ?? 0, true)} color="blue" />
-        <StatCard label={`積極情境 (${fmtPct(rates.aggressive * 100)})`} value={disp(last?.aggressive ?? 0, true)} color="green" />
+        <StatCard label={`保守情境 (${fmtPct(rates.conservative * 100)})`} value={disp(last?.conservative ?? 0)} color="orange" />
+        <StatCard label={`基準情境 (${fmtPct(rates.base * 100)})`} value={disp(last?.base ?? 0)} color="blue" />
+        <StatCard label={`積極情境 (${fmtPct(rates.aggressive * 100)})`} value={disp(last?.aggressive ?? 0)} color="green" />
       </div>
 
       <div className="h-80">
@@ -46,8 +46,8 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
           <LineChart data={lineData} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_COLOR} />
             <XAxis dataKey="label" tick={CHART_TICK_STYLE} interval="preserveStartEnd" />
-            <YAxis tickFormatter={v => disp(Number(v), true)} tick={CHART_TICK_STYLE} width={72} />
-            <Tooltip content={<ChartTooltip formatter={v => disp(v, true)} />} />
+            <YAxis tickFormatter={v => disp(Number(v))} tick={CHART_TICK_STYLE} width={72} />
+            <Tooltip content={<ChartTooltip formatter={v => disp(v)} />} />
             <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
             <Line type="monotone" dataKey="積極情境" stroke="#10b981" strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="基準情境" stroke="#3b82f6" strokeWidth={2.5} dot={false} />
@@ -77,7 +77,7 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
         <div className="bg-white border border-slate-100 shadow-sm rounded-xl p-4">
           <div className="text-sm text-slate-500 mb-1">每月定期投入</div>
           <div className="text-2xl font-bold text-slate-800">{disp(client.monthlyContribution)}</div>
-          <div className="text-slate-400 text-xs mt-1">年化 {disp(client.monthlyContribution * 12, true)}</div>
+          <div className="text-slate-400 text-xs mt-1">年化 {disp(client.monthlyContribution * 12)}</div>
         </div>
       </div>
 
@@ -115,7 +115,7 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
                         )}
                       </td>
                       <td className="py-2.5 text-right text-slate-500 align-top">{e.year}</td>
-                      <td className="py-2.5 text-right font-medium text-red-600 align-top">−{disp(e.amount, true)}</td>
+                      <td className="py-2.5 text-right font-medium text-red-600 align-top">−{disp(e.amount)}</td>
                     </tr>
                   )
                 })}
@@ -138,8 +138,8 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
             <div key={w.year} className="flex items-center justify-between text-sm bg-white rounded-lg px-3 py-2 border border-red-100">
               <span className="text-red-700 font-medium">{w.year} 年（{w.age} 歲）</span>
               <div className="text-right text-xs">
-                <div className="text-red-600">需支出 {disp(w.warningExpense, true)}</div>
-                <div className="text-slate-400">液態淨值約 {disp(w.liquidBase, true)}</div>
+                <div className="text-red-600">需支出 {disp(w.warningExpense)}</div>
+                <div className="text-slate-400">液態淨值約 {disp(w.liquidBase)}</div>
               </div>
             </div>
           ))}

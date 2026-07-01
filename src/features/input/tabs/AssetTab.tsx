@@ -66,7 +66,7 @@ export function AssetTab({ c, patch, rates }: Props) {
                     onChange={e => update(i, { amount: Number(e.target.value) })} />
                   {item.currency && item.currency !== 'TWD' && rates && item.amount > 0 && (
                     <span className="text-xs text-slate-400 mt-0.5 text-right">
-                      ≈ {fmtAmount(convertCurrency(item.amount, item.currency, 'TWD', rates), 'TWD', true)} TWD
+                      ≈ {fmtAmount(convertCurrency(item.amount, item.currency, 'TWD', rates), 'TWD')} TWD
                     </span>
                   )}
                 </div>
@@ -95,7 +95,7 @@ export function AssetTab({ c, patch, rates }: Props) {
                   </span>
                   {item.currency && item.currency !== 'TWD' && rates && item.amount > 0 && (
                     <span className="text-xs text-slate-400">
-                      ≈ {fmtAmount(convertCurrency(item.amount, item.currency, 'TWD', rates), 'TWD', true)} TWD
+                      ≈ {fmtAmount(convertCurrency(item.amount, item.currency, 'TWD', rates), 'TWD')} TWD
                     </span>
                   )}
                 </div>
