@@ -49,6 +49,16 @@ export function MajorExpenseTab({ c, patch }: Props) {
             onChange={e => update(i, { year: Number(e.target.value) })}
             placeholder="年份"
           />
+          <select
+            className="border border-slate-200 rounded-lg px-2 py-2 text-sm w-24 focus:border-blue-300 outline-none text-slate-500"
+            value={item.month ?? ''}
+            onChange={e => update(i, { month: e.target.value ? Number(e.target.value) : undefined })}
+          >
+            <option value="">月份（選填）</option>
+            {Array.from({ length: 12 }, (_, idx) => (
+              <option key={idx + 1} value={idx + 1}>{idx + 1} 月</option>
+            ))}
+          </select>
           <button
             onClick={() => remove(i)}
             aria-label="刪除此筆重大支出"

@@ -49,6 +49,33 @@ export function BasicTab({ c, patch }: Props) {
             placeholder="如：軟體工程師、自由業"
           />
         </div>
+        <div className="flex items-center gap-3 mb-1">
+          <label className="text-sm text-slate-500 w-28 shrink-0">規劃起點</label>
+          <input
+            type="number"
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-24 focus:border-blue-300 outline-none"
+            value={c.planStartYear ?? new Date().getFullYear()}
+            onChange={e => patch({ planStartYear: Number(e.target.value) })}
+          />
+          <span className="text-sm text-slate-400">年</span>
+          <select
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
+            value={c.planStartMonth ?? 1}
+            onChange={e => patch({ planStartMonth: Number(e.target.value) })}
+          >
+            {Array.from({ length: 12 }, (_, i) => (
+              <option key={i + 1} value={i + 1}>{i + 1} 月</option>
+            ))}
+          </select>
+          {(c.planStartMonth ?? 1) > 1 && (
+            <span className="text-xs text-amber-600 font-medium">
+              今年剩餘 {13 - (c.planStartMonth ?? 1)} 個月
+            </span>
+          )}
+        </div>
+        <div className="mb-2 pl-28">
+          <span className="text-xs text-slate-400">從年中開始合作時設定，報告將同時顯示今年剩餘期間的預測</span>
+        </div>
       </Section>
 
       <Section title="諮詢重點">

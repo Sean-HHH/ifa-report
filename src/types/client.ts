@@ -139,6 +139,7 @@ export interface MajorExpense {
   label: string
   amount: number
   year: number
+  month?: number  // 1–12，選填；未設定時視為不限月份
 }
 
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive'
@@ -152,6 +153,8 @@ export interface ClientProfile {
   occupation?: string
   consultationFocus?: string
   consultationAdvice?: string[]
+  planStartMonth?: number  // 1–12，規劃起點月份；預設 1（= 全年）
+  planStartYear?: number   // 規劃起點年份；預設當年
 
   // 基本財務狀況
   incomes: IncomeItem[]
