@@ -116,10 +116,17 @@ function migrate(raw: any): ClientProfile {
     })),
   }))
 
+  // v14 → v15: AssetPurpose 'protection' 改名為 'aggressive'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const v15AssetItems = v11AssetItems.map((item: any) => ({
+    ...item,
+    purpose: item.purpose === 'protection' ? 'aggressive' : item.purpose,
+  }))
+
   return {
     ...raw,
-    __schemaVersion: 14,
-    assetItems: v11AssetItems,
+    __schemaVersion: 15,
+    assetItems: v15AssetItems,
     liabilityItems: rawLiabilities,
     incomes,
     expenses,

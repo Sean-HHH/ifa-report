@@ -67,11 +67,11 @@ export const ASSET_CURRENCY_LABELS: Record<AssetCurrency, string> = {
   USDT: 'USDT', other: '其他',
 }
 
-export type AssetPurpose = 'emergency' | 'growth' | 'income' | 'protection'
+export type AssetPurpose = 'emergency' | 'growth' | 'income' | 'aggressive'
 
 export const ASSET_PURPOSE_LABELS: Record<AssetPurpose, string> = {
   emergency: '生活備用金', growth: '長期成長',
-  income: '收益型', protection: '積極型',
+  income: '收益型', aggressive: '積極型',
 }
 
 export type LedgerLineType = 'buy' | 'sell' | 'dividend' | 'fee' | 'transfer' | 'valuation'

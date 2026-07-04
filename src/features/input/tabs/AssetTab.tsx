@@ -2,7 +2,7 @@ import type { ClientProfile, InvestmentItem, InvestmentCategory, AssetCurrency, 
 import { INVESTMENT_CATEGORY_LABELS, ASSET_CURRENCY_LABELS, ASSET_PURPOSE_LABELS } from '../../../types/client'
 import { convertCurrency, fmtAmount } from '../../../utils/calculations'
 import type { FxRates } from '../../fx/exchangeRate'
-import { Section, AddBtn, NoteField } from '../shared'
+import { Section, AddBtn, NoteField, NumInput } from '../shared'
 
 const TRADEABLE = new Set<InvestmentCategory>(['stock', 'fund', 'bond', 'crypto'])
 
@@ -60,7 +60,7 @@ export function AssetTab({ c, patch, rates }: Props) {
                 placeholder={isTradeable ? '標的名稱 / 代碼' : '項目名稱'} />
               {!isTradeable && (
                 <div className="flex flex-col">
-                  <input type="number" className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
+                  <NumInput className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
                     value={item.amount}
                     placeholder={`金額（${item.currency ?? 'TWD'}）`}
                     onChange={e => update(i, { amount: Number(e.target.value) })} />

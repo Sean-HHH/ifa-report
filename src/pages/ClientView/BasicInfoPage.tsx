@@ -43,6 +43,29 @@ export function BasicInfoPage({ client: c }: Props) {
   return (
     <div style={{ padding: '24px 16px', maxWidth: 640, margin: '0 auto' }}>
 
+      {/* 諮詢重點 */}
+      {c.consultationFocus && (
+        <div style={{ background: 'var(--color-lime)', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 8, letterSpacing: '0.06em', textTransform: 'uppercase' }}>諮詢重點</div>
+          <div style={{ fontSize: 15, color: 'var(--color-text-primary)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{c.consultationFocus}</div>
+        </div>
+      )}
+
+      {/* 諮詢建議 */}
+      {c.consultationAdvice && c.consultationAdvice.length > 0 && (
+        <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '16px 20px', marginBottom: 28, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: 12, letterSpacing: '0.06em', textTransform: 'uppercase' }}>諮詢建議</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {c.consultationAdvice.filter(a => a.trim()).map((advice, i) => (
+              <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: 'var(--color-lime)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--color-text-primary)', marginTop: 1 }}>{i + 1}</span>
+                <span style={{ fontSize: 14, color: 'var(--color-text-primary)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{advice}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 人生目標 */}
       <Section title="人生目標">
         <Row label="出生年份" value={`${c.birthYear} 年`} />

@@ -1,5 +1,5 @@
 import type { ClientProfile, MajorExpense } from '../../../types/client'
-import { Section, AddBtn, NumField } from '../shared'
+import { Section, AddBtn, NumField, NumInput } from '../shared'
 
 interface Props {
   c: ClientProfile
@@ -27,9 +27,9 @@ export function GoalTab({ c, patch }: Props) {
           <div key={i} className="flex gap-2 items-center mb-2">
             <input className="border border-slate-200 rounded-lg px-3 py-2 text-sm flex-1 focus:border-blue-300 outline-none"
               value={item.label} onChange={e => updateMajor(i, { label: e.target.value })} placeholder="項目" />
-            <input type="number" className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-28 focus:border-blue-300 outline-none"
+            <NumInput className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-28 focus:border-blue-300 outline-none"
               value={item.amount} onChange={e => updateMajor(i, { amount: Number(e.target.value) })} placeholder="金額" />
-            <input type="number" className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-24 focus:border-blue-300 outline-none"
+            <NumInput className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-24 focus:border-blue-300 outline-none"
               value={item.year} onChange={e => updateMajor(i, { year: Number(e.target.value) })} placeholder="年份" />
             <button onClick={() => removeMajor(i)} aria-label="刪除此筆重大支出" className="text-slate-300 hover:text-red-400 transition-colors p-1 flex items-center" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
