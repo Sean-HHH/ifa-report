@@ -4,6 +4,8 @@ import { ShareModal } from './features/share/ShareModal'
 import { ShareListModal } from './features/share/ShareListModal'
 import { useClientStore } from './hooks/useClientStore'
 import { useAppSettings } from './hooks/useAppSettings'
+import { useAuth } from './features/auth/useAuth'
+import { AuthGate } from './features/auth/AuthGate'
 import { ClientManager } from './features/client/ClientManager'
 import { InputForm } from './features/input/InputForm'
 import { FxPanel } from './features/fx/FxPanel'
@@ -32,8 +34,9 @@ const RC_OPTIONS = [
 ]
 
 export default function App() {
-  const { clients, activeClient, createClient, updateClient, deleteClient, selectClient } = useClientStore()
-  const { reportCurrency, setReportCurrency, effectiveRates, apiRates, manualRates, setManualRate, clearManualRates, loading, lastUpdated } = useAppSettings()
+  const auth = useAuth()
+  const { clients, activeClient, createClient, updateClient, deleteClient, selectClient, loading: dataLoading, syncing } = useClientStore()
+  const { reportCurrency, setReportCurrency, effectiveRates, apiRates, manualRates, setManualRate, clearManualRates, loading: fxLoading, lastUpdated } = useAppSettings()
   const [reportTab, setReportTab] = useState<ReportTab>('cashflow')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [printing, setPrinting] = useState(false)
@@ -62,6 +65,18 @@ export default function App() {
   }
 
   const fxProps = { rates: effectiveRates, reportCurrency }
+
+  if (auth.loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)' }}>
+        <div style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>載入中…</div>
+      </div>
+    )
+  }
+
+  if (!auth.user) {
+    return <AuthGate />
+  }
 
   return (
     <>
@@ -119,8 +134,15 @@ export default function App() {
 
           {/* Right side controls */}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Sync indicator */}
+            {(dataLoading || syncing) && (
+              <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                {dataLoading ? '載入中…' : '儲存中…'}
+              </span>
+            )}
+
             {/* FX rate indicator */}
-            {loading && (
+            {fxLoading && (
               <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>匯率載入中…</span>
             )}
 
@@ -203,6 +225,17 @@ export default function App() {
                 {printing ? '準備中...' : '匯出 PDF'}
               </button>
             )}
+
+            <button onClick={auth.signOut} style={{
+              fontSize: 12, padding: '5px 10px',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--color-surface)',
+              color: 'var(--color-text-muted)',
+              cursor: 'pointer',
+            }}>
+              登出
+            </button>
           </div>
         </header>
 
@@ -226,7 +259,7 @@ export default function App() {
             onSetManualRate={setManualRate}
             onClearAll={clearManualRates}
             lastUpdated={lastUpdated}
-            loading={loading}
+            loading={fxLoading}
             onClose={() => setShowFxPanel(false)}
           />
         )}

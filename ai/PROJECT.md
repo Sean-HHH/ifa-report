@@ -13,7 +13,8 @@
 - Supabase JS 2（報告分享功能；IFA 端無帳號，僅用於寫入/讀取 shared_snapshots）
 - react-router-dom 7（Client View 路由）
 - vitest 4（單元測試）
-- localStorage（IFA 端唯一持久化層）
+- Supabase Auth（IFA 端 email/password 登入）
+- Supabase `ifa_clients` 表（JSONB，IFA 端客戶資料）
 
 ## 設計系統
 
@@ -48,9 +49,12 @@ src/
   services/
     exchangeRate.ts              ← FX 匯率 API（open.er-api.com）
   features/
+    auth/
+      useAuth.ts                 ← Supabase Auth 狀態 hook（user / loading / signOut）
+      AuthGate.tsx               ← 登入 UI（email + 密碼；AuthGate 包住整個 App）
     client/
       ClientManager.tsx          ← 左側客戶列表（選擇、新增、刪除）；深色 sidebar
-      useClientStore.ts          ← （符號連結，主體在 hooks/）
+      useClientStore.ts          ← 客戶 CRUD + Supabase 同步 + schema migration（v15）
     input/
       InputForm.tsx              ← 6 tabs 資料輸入容器
       shared.tsx                 ← NoteField / Section / NumField / AddBtn 共用元件
@@ -113,12 +117,18 @@ npm run preview  # 預覽 production build
 
 ## 資料持久化
 
-**localStorage（IFA 端）：**
-- `ifa_clients` → 所有 ClientProfile 的 JSON 陣列
-- `ifa_active_client` → 目前選中的 client UUID
+**Supabase `ifa_clients` 表（IFA 端主要持久化）：**
+- `id` uuid PK（= ClientProfile.id）
+- `user_id` uuid → auth.users（RLS 保護）
+- `name` text
+- `data` jsonb（整個 ClientProfile）
+- 讀寫由 `useClientStore` 管理；`updateClient` debounce 2 秒後 upsert
+
+**localStorage（輔助）：**
+- `ifa_active_client` → 目前選中的 client UUID（跨分頁記憶用）
 
 **Schema 版本歷史（useClientStore.ts）：**
-v1 → v2 → v3 → v4 → v5 → v6 → v7 → ... → v10 → v11 → v12 → v13 → v14（目前）
+v1 → v2 → v3 → v4 → v5 → v6 → v7 → ... → v10 → v11 → v12 → v13 → v14 → v15（目前）
 - v11：`InvestmentItem` 補 `id`（UUID）；`AssetPeriodSnapshot` 補 `ledgerEntries: []`
 - v12：`ClientProfile` 新增 `ledgerEntries: LedgerEntry[]`（全局交易記錄）；`LedgerEntry` 新增 `snapshotId?: string`；`InvestmentItem` 新增 `avgCost?: number`
 - v13：`LiabilityItem` 新增 `annualInterestRate?: number`（optional，舊資料保持 undefined）

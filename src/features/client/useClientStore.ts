@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { ClientProfile } from '../../types/client'
 import { newClient } from '../../types/client'
+import { supabase } from '../../lib/supabase'
 
-const STORAGE_KEY = 'ifa_clients'
 const ACTIVE_KEY = 'ifa_active_client'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -141,64 +141,114 @@ function migrate(raw: any): ClientProfile {
   }
 }
 
-function load(): ClientProfile[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
-    return Array.isArray(raw) ? raw.map(migrate) : []
-  } catch {
-    return []
-  }
-}
-
-function save(clients: ClientProfile[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(clients))
-}
-
 export function useClientStore() {
-  const [clients, setClients] = useState<ClientProfile[]>(load)
+  const [clients, setClients] = useState<ClientProfile[]>([])
   const [activeId, setActiveId] = useState<string | null>(
     () => localStorage.getItem(ACTIVE_KEY)
   )
+  const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+
+  const userIdRef = useRef<string | null>(null)
+  const saveTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const syncCountRef = useRef(0)
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        userIdRef.current = session.user.id
+        setLoading(true)
+        const { data, error } = await supabase
+          .from('ifa_clients')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('updated_at', { ascending: false })
+        if (!error && data) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setClients((data as any[]).map((row: { data: unknown }) => migrate(row.data)))
+        }
+        setLoading(false)
+      } else {
+        userIdRef.current = null
+        setClients([])
+        setActiveId(null)
+        localStorage.removeItem(ACTIVE_KEY)
+        setLoading(false)
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   const activeClient = clients.find(c => c.id === activeId) ?? null
 
+  const scheduleSave = useCallback((profile: ClientProfile) => {
+    const uid = userIdRef.current
+    if (!uid) return
+    const existing = saveTimersRef.current.get(profile.id)
+    if (existing) clearTimeout(existing)
+    const timer = setTimeout(async () => {
+      saveTimersRef.current.delete(profile.id)
+      syncCountRef.current += 1
+      setSyncing(true)
+      await supabase.from('ifa_clients').upsert({
+        id: profile.id,
+        user_id: uid,
+        name: profile.name,
+        data: profile,
+        updated_at: new Date().toISOString(),
+      })
+      syncCountRef.current -= 1
+      if (syncCountRef.current === 0) setSyncing(false)
+    }, 2000)
+    saveTimersRef.current.set(profile.id, timer)
+  }, [])
+
   const createClient = useCallback(() => {
+    const uid = userIdRef.current
+    if (!uid) return null
     const c = newClient()
-    setClients(prev => {
-      const next = [...prev, c]
-      save(next)
-      return next
-    })
+    setClients(prev => [...prev, c])
     setActiveId(c.id)
     localStorage.setItem(ACTIVE_KEY, c.id)
+    supabase.from('ifa_clients').insert({
+      id: c.id,
+      user_id: uid,
+      name: c.name,
+      data: c,
+    })
     return c
   }, [])
 
   const updateClient = useCallback((updated: ClientProfile) => {
     const patched = { ...updated, updatedAt: new Date().toISOString() }
-    setClients(prev => {
-      const next = prev.map(c => c.id === patched.id ? patched : c)
-      save(next)
-      return next
-    })
-  }, [])
+    setClients(prev => prev.map(c => c.id === patched.id ? patched : c))
+    scheduleSave(patched)
+  }, [scheduleSave])
 
   const deleteClient = useCallback((id: string) => {
-    setClients(prev => {
-      const next = prev.filter(c => c.id !== id)
-      save(next)
-      return next
-    })
-    if (activeId === id) {
-      setActiveId(null)
-      localStorage.removeItem(ACTIVE_KEY)
+    const timer = saveTimersRef.current.get(id)
+    if (timer) {
+      clearTimeout(timer)
+      saveTimersRef.current.delete(id)
     }
-  }, [activeId])
+    setClients(prev => prev.filter(c => c.id !== id))
+    setActiveId(prev => {
+      if (prev === id) {
+        localStorage.removeItem(ACTIVE_KEY)
+        return null
+      }
+      return prev
+    })
+    const uid = userIdRef.current
+    if (uid) {
+      supabase.from('ifa_clients').delete().eq('id', id).eq('user_id', uid)
+    }
+  }, [])
 
   const selectClient = useCallback((id: string) => {
     setActiveId(id)
     localStorage.setItem(ACTIVE_KEY, id)
   }, [])
 
-  return { clients, activeClient, createClient, updateClient, deleteClient, selectClient }
+  return { clients, activeClient, createClient, updateClient, deleteClient, selectClient, loading, syncing }
 }

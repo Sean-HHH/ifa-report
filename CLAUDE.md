@@ -37,6 +37,8 @@
 ```
 src/
   types/client.ts
+  features/auth/useAuth.ts
+  features/auth/AuthGate.tsx
   features/client/useClientStore.ts   ← schema migration 在這裡
   features/cashflow/calc.ts
   features/cashflow/CashFlowReport.tsx
@@ -71,7 +73,8 @@ src/
 - 禁止刪除 `useClientStore.ts` 內的 backward migration 邏輯
 - 禁止更動 `.github/workflows/deploy.yml`，除非任務明確涉及 CI/CD
 - 禁止修改 Vite base path（`/ifa-report/`），除非任務明確要求
-- 禁止在 localStorage 以外新增持久化機制
+- 禁止新增第二個使用者帳號或修改 Auth 架構（目前為單使用者）
+- 禁止修改 `ifa_clients` 表結構或 RLS policy，除非 Sean 明確確認
 
 ---
 
