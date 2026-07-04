@@ -177,9 +177,12 @@ export function useClientStore() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
+        const isFirstLoad = userIdRef.current !== session.user.id
         userIdRef.current = session.user.id
-        setLoading(true)
-        void loadClients(session.user.id)
+        if (isFirstLoad) {
+          setLoading(true)
+          void loadClients(session.user.id)
+        }
       } else {
         userIdRef.current = null
         setClients([])

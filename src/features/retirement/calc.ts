@@ -1,6 +1,7 @@
 import type { ClientProfile } from '../../types/client'
 import { RISK_RETURN, calcCurrentAge } from '../../types/client'
 import { calcAssetGrowth, type GrowthYear } from '../assets/calc'
+import type { FxRates } from '../fx/exchangeRate'
 
 export interface RetirementResult {
   yearsToRetirement: number
@@ -23,7 +24,7 @@ export interface RetirementResult {
   withdrawalYears: GrowthYear[]
 }
 
-export function calcRetirement(c: ClientProfile): RetirementResult {
+export function calcRetirement(c: ClientProfile, fxRates?: FxRates): RetirementResult {
   const rates = RISK_RETURN[c.riskProfile]
   const baseRate = c.customReturnRate !== null ? c.customReturnRate : rates.base
   const currentAge = calcCurrentAge(c.birthYear)
@@ -40,7 +41,7 @@ export function calcRetirement(c: ClientProfile): RetirementResult {
 
   // 投影延伸到退休年（若超過 30 年）
   const projectionYears = Math.max(30, yearsToRetirement + 1)
-  const growth = calcAssetGrowth(c, projectionYears)
+  const growth = calcAssetGrowth(c, projectionYears, fxRates)
 
   const retirementYearData = growth.find(d => d.age === c.retirementAge) ?? growth[growth.length - 1]
   const projectedLiquidBase = retirementYearData.liquidBase

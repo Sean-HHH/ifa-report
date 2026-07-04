@@ -16,7 +16,7 @@ import { CHART_TICK_STYLE, CHART_GRID_COLOR } from '../../shared/chartConstants'
 export function RetirementReport({ client, rates, reportCurrency }: { client: ClientProfile; rates: FxRates; reportCurrency: string }) {
   const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, rates)
   const disp = (n: number) => fmtAmount(rc(n), reportCurrency)
-  const r = useMemo(() => calcRetirement(client), [client])
+  const r = useMemo(() => calcRetirement(client, rates), [client, rates])
   const isOnTrack = r.gap <= 0
 
   const gapBarData = [

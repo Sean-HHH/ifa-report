@@ -4,7 +4,7 @@ import {
   ReferenceDot, ResponsiveContainer,
 } from 'recharts'
 import type { ClientProfile } from '../../types/client'
-import { calcAssetGrowth, convertCurrency, fmtAmount, fmtPct, netWorth } from '../../utils/calculations'
+import { calcAssetGrowth, convertCurrency, fmtAmount, fmtPct } from '../../utils/calculations'
 import { RISK_RETURN, calcCurrentAge } from '../../types/client'
 import type { FxRates } from '../fx/exchangeRate'
 import { StatCard } from '../../shared/StatCard'
@@ -15,8 +15,8 @@ import { CHART_TICK_STYLE, CHART_GRID_COLOR } from '../../shared/chartConstants'
 export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { client: ClientProfile; rates: FxRates; reportCurrency: string }) {
   const yearsToRetirement = Math.max(client.retirementAge - calcCurrentAge(client.birthYear), 1)
   const data = useMemo(
-    () => calcAssetGrowth(client, yearsToRetirement + 1),
-    [client, yearsToRetirement],
+    () => calcAssetGrowth(client, yearsToRetirement + 1, fxRates),
+    [client, yearsToRetirement, fxRates],
   )
   const rates = RISK_RETURN[client.riskProfile]
   const displayRates = client.customReturnRate != null
@@ -26,7 +26,7 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
         aggressive: client.customReturnRate * 1.2,
       }
     : rates
-  const nw = useMemo(() => netWorth(client), [client])
+  const nw = useMemo(() => data[0]?.base ?? 0, [data])
   const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, fxRates)
   const disp = (n: number) => fmtAmount(rc(n), reportCurrency)
 
