@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { AssetPeriodSnapshot } from './types/client'
 import { ShareModal } from './features/share/ShareModal'
 import { ShareListModal } from './features/share/ShareListModal'
@@ -35,7 +35,21 @@ const RC_OPTIONS = [
 
 export default function App() {
   const auth = useAuth()
-  const { clients, activeClient, createClient, updateClient, deleteClient, selectClient, loading: dataLoading, syncing } = useClientStore()
+  const {
+    clients,
+    activeClient,
+    createClient,
+    updateClient,
+    deleteClient,
+    selectClient,
+    saveClient,
+    loading: dataLoading,
+    saving,
+    saveError,
+    lastSavedAt,
+    isDirty,
+    hasUnsavedChanges,
+  } = useClientStore()
   const { reportCurrency, setReportCurrency, effectiveRates, apiRates, manualRates, setManualRate, clearManualRates, loading: fxLoading, lastUpdated } = useAppSettings()
   const [reportTab, setReportTab] = useState<ReportTab>('cashflow')
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -44,6 +58,16 @@ export default function App() {
   const [showSnapshotPanel, setShowSnapshotPanel] = useState(false)
   const [showShareListModal, setShowShareListModal] = useState(false)
   const [shareTargetSnapshot, setShareTargetSnapshot] = useState<AssetPeriodSnapshot | null>(null)
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
 
   const handleShareUpdate = (updated: AssetPeriodSnapshot) => {
     if (!activeClient) return
@@ -135,10 +159,52 @@ export default function App() {
           {/* Right side controls */}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
             {/* Sync indicator */}
-            {(dataLoading || syncing) && (
+            {dataLoading && (
               <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-                {dataLoading ? '載入中…' : '儲存中…'}
+                載入中…
               </span>
+            )}
+
+            {activeClient && (
+              <>
+                <span style={{
+                  fontSize: 11,
+                  color: saveError
+                    ? 'var(--color-negative)'
+                    : isDirty
+                      ? 'var(--color-accent)'
+                      : 'var(--color-text-muted)',
+                  maxWidth: 240,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }} title={saveError ?? undefined}>
+                  {saveError
+                    ?? (saving
+                      ? '儲存中…'
+                      : isDirty
+                        ? '有未儲存的變更'
+                        : lastSavedAt
+                          ? `已儲存 ${lastSavedAt.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`
+                          : '已載入')}
+                </span>
+                <button
+                  onClick={() => void saveClient(activeClient)}
+                  disabled={saving || !isDirty}
+                  style={{
+                    fontSize: 12,
+                    padding: '6px 14px',
+                    border: 'none',
+                    borderRadius: 'var(--radius-sm)',
+                    background: saving || !isDirty ? 'var(--color-primary-muted)' : 'var(--color-primary)',
+                    color: saving || !isDirty ? 'var(--color-text-muted)' : '#fff',
+                    cursor: saving || !isDirty ? 'not-allowed' : 'pointer',
+                    fontWeight: 600,
+                  }}
+                >
+                  {saving ? '儲存中…' : '儲存'}
+                </button>
+              </>
             )}
 
             {/* FX rate indicator */}

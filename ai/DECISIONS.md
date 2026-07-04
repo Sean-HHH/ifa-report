@@ -10,7 +10,7 @@
 |------|------|------|
 | 狀態管理 | React hooks only（無 Zustand / Redux） | 專案規模小，引入狀態管理庫增加複雜度但無實質收益 |
 | 持久化（IFA 端） | Supabase `ifa_clients` 表（JSONB）+ email/password 登入 | 多裝置共用資料；active client id 仍用 localStorage 記憶 |
-| 持久化（分享） | Supabase（anon key） | 無伺服器端程式碼，只用 Supabase 存取 shared_snapshots |
+| 持久化（分享） | Supabase RLS + SECURITY DEFINER RPC | anon 不可直接讀寫 `shared_snapshots`；密碼驗證成功後才回傳 snapshot，避免前端繞過 PasswordGate |
 | PDF 生成 | html2canvas + jsPDF（純前端） | 無需伺服器，IFA 可在本地直接匯出 |
 | 樣式系統 | Tailwind CSS v4 utility-first | 快速開發；v4 語法（`@import "tailwindcss"`），不可用 v3 語法 |
 | 圖表套件 | Chart.js 4 + react-chartjs-2 5 | 已整合穩定，不換 Recharts / D3 / ECharts |
@@ -29,7 +29,7 @@
 | 決策 | 選擇 | 原因 |
 |------|------|------|
 | 多客戶支援 | 是（useClientStore 管理陣列） | IFA 有多個客戶，需要切換 |
-| 雲端同步 | 是（debounce 2 秒自動儲存）| 單一使用者，解決換裝置/瀏覽器資料遺失問題 |
+| 雲端同步 | 手動儲存（dirty/saving/saved/error 狀態） | 明確讓 IFA 知道資料是否已成功寫入 Supabase；未儲存離頁時提示，避免背景 request 被 refresh 中止 |
 | IFA 帳號系統 | 是（email + 密碼，單使用者） | 帳號在 Supabase Dashboard 手動建立，不提供 Registration UI |
 | 情境數量 | 固定 3 個（保守 / 基準 / 積極） | 與台灣 IFA 業界慣例對齊，避免過度複雜化 |
 | Return rate 設定 | 依 riskProfile 給預設值，可 customReturnRate 覆蓋 | 彈性夠，不需要 per-scenario 自訂 |
@@ -37,11 +37,11 @@
 | PDF 格式 | 一客戶一份，多頁（每頁一份報表） | 完整呈現四份報表 |
 | 介面語言 | 繁體中文 | 目標市場台灣，不做多語系 |
 | InputForm 結構 | 6 tabs（基本/收支/資產/投資/支出/退休） | 依資料類型分組，比原先 3 tabs 更清晰 |
-| 分享密碼 | hash 存 Supabase，不存明文 | 基本安全性，IFA 不需要登入系統 |
+| 分享密碼 | Supabase RPC 使用 `pgcrypto` bcrypt hash/verify；至少 8 字元 | 密碼與 hash 不進入前端；客戶端驗證成功前不回傳 snapshot，取代可被繞過的前端 SHA-256 比對 |
 | 資產變動追蹤（Ledger） | LedgerEntry → LedgerLine 雙層結構；交易記錄存於 ClientProfile.ledgerEntries（全局），以 snapshotId 關聯期間快照；確認後套用至 assetItems；差額自動建 MajorExpense；avgCost 由 ledger 自動維護（加權平均成本），unitPrice 仍為手填市價 | 交易記錄不依附快照，刪快照不遺失歷史；avgCost 與 unitPrice 分離，成本追蹤與市值評估互不干擾 |
 | 快照 UI 改名 | 「快照」→「期間記錄」（UI 層）；型別名 `AssetPeriodSnapshot` 保留不動 | 語意更精確；型別名不動避免大量 import 更新 |
 | Ledger UI 隱藏 | `LedgerPanel` 元件保留但在 SnapshotPanel 中隱藏（不渲染）；資料結構（`ledgerEntries`、`LedgerEntry`、`LedgerLine`）完整保留 | 主要工作流程已改為「更新 Input → 建立快照」，逐筆交易記錄對目前 IFA 使用情境過重；隱藏而非刪除，保留日後重啟的彈性 |
-| 分享連結綁定 | 一快照一連結；`AssetPeriodSnapshot.shareId` 存 Supabase row UUID；upsert（修改已分享）/ delete（撤銷）模式 | 避免同一快照出現多條分享連結；分享狀態對齊快照版本 |
+| 分享連結綁定 | 一快照一連結；`AssetPeriodSnapshot.shareId` 存 Supabase row UUID；create/update/revoke 均走 owner-aware RPC | 避免同一快照出現多條分享連結；所有管理操作由 `auth.uid()` 驗證 owner |
 | 資產成長雙池模型 | 流動資產（現金/股票/基金/債券/加密/其他）與不動產分池獨立成長；不動產使用 `realEstateReturnRate`（預設同通膨率）；流動池每年扣除重大支出後複利 | 不動產難以即時變現，與流動資產混算會高估流動性；重大支出衝擊只從流動池扣 |
 | 不動產不計入退休提領缺口 | `projectedUsableBase = projectedLiquidBase + lumpSum`；gap 比較與退休後模擬均以此為基準；不動產另列顯示 | 不動產通常為自住，退休時不一定能提領；高估可用資產對客戶有風險 |
 | 月退年金假設 | 名目固定（不隨通膨調升）；保守假設 | 台灣勞保月退有條件調升但非每年，保守估算讓缺口計算不低估；客戶接受後可視實際條件手動調整 |
@@ -54,7 +54,7 @@
 
 - `useClientStore.ts` 必須永遠向後相容，不可 breaking change
 - 新欄位必須有預設值，migration 自動補齊舊資料
-- Migration 版本號遞增（目前 v14）
+- Migration 版本號遞增（目前 v15）
 - 改 `ClientProfile` 型別 → 必須同步改 migration → 必須在 `InputForm` 有對應輸入 → 視情況在報表中顯示
 - Optional 欄位且 calc 層有 `?? default` fallback 者，可不遞增版本（`...raw` spread 自動帶入舊值）
 
@@ -70,3 +70,16 @@
 - 需要更動部署平台或 CI/CD 邏輯
 - 需要更換 Supabase 或 FX 供應商
 - 需要新增多使用者支援或修改帳號架構
+
+---
+
+## 變更紀錄
+
+### 2026-07-04 — 客戶持久化與分享安全強化
+
+- **問題**：新增客戶先寫 React state、背景 INSERT 尚未完成時 refresh 會遺失；分享頁在前端取得 `snapshot_data` 與 `password_hash` 後才驗證密碼，可繞過 UI 直接讀取資料。
+- **決策**：取消 debounce 自動儲存，改為明確手動 Save 與 dirty/saving/saved/error 狀態；分享建立、更新、撤銷與驗證改走 Supabase RPC。
+- **資料庫**：新增 `shared_snapshots.user_id`、owner RLS、最小化 grants、`pgcrypto` bcrypt 與四個分享 RPC；migration 存於 `supabase/migrations/202607040001_secure_client_and_sharing.sql`。
+- **相容性**：單一 Auth 帳號時 migration 自動補既有分享 owner；舊 SHA-256 分享必須重新設定至少 8 字元密碼。
+- **驗收**：lint、TypeScript、Vite build 通過；Sean 已在 local 驗證 Save → refresh 與新版分享流程可運作；Supabase migration 已手動套用成功。
+- **未包含**：未新增 npm 套件、未改 ClientProfile schema 版本、未 commit。

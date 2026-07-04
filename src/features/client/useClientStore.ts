@@ -147,27 +147,39 @@ export function useClientStore() {
     () => localStorage.getItem(ACTIVE_KEY)
   )
   const [loading, setLoading] = useState(true)
-  const [syncing, setSyncing] = useState(false)
+  const [dirtyClientIds, setDirtyClientIds] = useState<Set<string>>(new Set())
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
 
   const userIdRef = useRef<string | null>(null)
-  const saveTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
-  const syncCountRef = useRef(0)
+  const editVersionsRef = useRef<Map<string, number>>(new Map())
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const loadClients = async (userId: string) => {
+      const { data, error } = await supabase
+        .from('ifa_clients')
+        .select('*')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+
+      if (userIdRef.current !== userId) return
+      if (!error && data) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setClients((data as any[]).map((row: { data: unknown }) => migrate(row.data)))
+        setDirtyClientIds(new Set())
+        setSaveError(null)
+      } else if (error) {
+        setSaveError(`讀取客戶資料失敗：${error.message}`)
+      }
+      setLoading(false)
+    }
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         userIdRef.current = session.user.id
         setLoading(true)
-        const { data, error } = await supabase
-          .from('ifa_clients')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('updated_at', { ascending: false })
-        if (!error && data) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setClients((data as any[]).map((row: { data: unknown }) => migrate(row.data)))
-        }
-        setLoading(false)
+        void loadClients(session.user.id)
       } else {
         userIdRef.current = null
         setClients([])
@@ -181,26 +193,42 @@ export function useClientStore() {
 
   const activeClient = clients.find(c => c.id === activeId) ?? null
 
-  const scheduleSave = useCallback((profile: ClientProfile) => {
+  const saveClient = useCallback(async (profile: ClientProfile) => {
     const uid = userIdRef.current
-    if (!uid) return
-    const existing = saveTimersRef.current.get(profile.id)
-    if (existing) clearTimeout(existing)
-    const timer = setTimeout(async () => {
-      saveTimersRef.current.delete(profile.id)
-      syncCountRef.current += 1
-      setSyncing(true)
-      await supabase.from('ifa_clients').upsert({
-        id: profile.id,
-        user_id: uid,
-        name: profile.name,
-        data: profile,
-        updated_at: new Date().toISOString(),
-      })
-      syncCountRef.current -= 1
-      if (syncCountRef.current === 0) setSyncing(false)
-    }, 2000)
-    saveTimersRef.current.set(profile.id, timer)
+    if (!uid) {
+      setSaveError('尚未登入，無法儲存客戶資料。')
+      return false
+    }
+
+    setSaving(true)
+    setSaveError(null)
+    const editVersion = editVersionsRef.current.get(profile.id) ?? 0
+    const profileToSave = { ...profile, updatedAt: new Date().toISOString() }
+    const { error } = await supabase.from('ifa_clients').upsert({
+      id: profile.id,
+      user_id: uid,
+      name: profileToSave.name,
+      data: profileToSave,
+      updated_at: new Date().toISOString(),
+    })
+
+    setSaving(false)
+    if (error) {
+      setSaveError(`儲存失敗：${error.message}`)
+      return false
+    }
+
+    setClients(prev => prev.map(client =>
+      client.id === profile.id && client.updatedAt === profile.updatedAt ? profileToSave : client
+    ))
+    setDirtyClientIds(prev => {
+      if ((editVersionsRef.current.get(profile.id) ?? 0) !== editVersion) return prev
+      const next = new Set(prev)
+      next.delete(profile.id)
+      return next
+    })
+    setLastSavedAt(new Date())
+    return true
   }, [])
 
   const createClient = useCallback(() => {
@@ -208,30 +236,30 @@ export function useClientStore() {
     if (!uid) return null
     const c = newClient()
     setClients(prev => [...prev, c])
+    editVersionsRef.current.set(c.id, 0)
+    setDirtyClientIds(prev => new Set(prev).add(c.id))
+    setSaveError(null)
     setActiveId(c.id)
     localStorage.setItem(ACTIVE_KEY, c.id)
-    supabase.from('ifa_clients').insert({
-      id: c.id,
-      user_id: uid,
-      name: c.name,
-      data: c,
-    })
     return c
   }, [])
 
   const updateClient = useCallback((updated: ClientProfile) => {
     const patched = { ...updated, updatedAt: new Date().toISOString() }
     setClients(prev => prev.map(c => c.id === patched.id ? patched : c))
-    scheduleSave(patched)
-  }, [scheduleSave])
+    editVersionsRef.current.set(patched.id, (editVersionsRef.current.get(patched.id) ?? 0) + 1)
+    setDirtyClientIds(prev => new Set(prev).add(patched.id))
+    setSaveError(null)
+  }, [])
 
   const deleteClient = useCallback((id: string) => {
-    const timer = saveTimersRef.current.get(id)
-    if (timer) {
-      clearTimeout(timer)
-      saveTimersRef.current.delete(id)
-    }
     setClients(prev => prev.filter(c => c.id !== id))
+    editVersionsRef.current.delete(id)
+    setDirtyClientIds(prev => {
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
     setActiveId(prev => {
       if (prev === id) {
         localStorage.removeItem(ACTIVE_KEY)
@@ -241,7 +269,10 @@ export function useClientStore() {
     })
     const uid = userIdRef.current
     if (uid) {
-      supabase.from('ifa_clients').delete().eq('id', id).eq('user_id', uid)
+      supabase.from('ifa_clients').delete()
+        .eq('id', id)
+        .eq('user_id', uid)
+        .then(({ error }) => { if (error) console.error('delete failed:', error) })
     }
   }, [])
 
@@ -250,5 +281,19 @@ export function useClientStore() {
     localStorage.setItem(ACTIVE_KEY, id)
   }, [])
 
-  return { clients, activeClient, createClient, updateClient, deleteClient, selectClient, loading, syncing }
+  return {
+    clients,
+    activeClient,
+    createClient,
+    updateClient,
+    deleteClient,
+    selectClient,
+    saveClient,
+    loading,
+    saving,
+    saveError,
+    lastSavedAt,
+    isDirty: activeClient ? dirtyClientIds.has(activeClient.id) : false,
+    hasUnsavedChanges: dirtyClientIds.size > 0,
+  }
 }

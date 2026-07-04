@@ -10,7 +10,7 @@
 - Chart.js 4 + react-chartjs-2 5（報表視覺化）
 - chartjs-plugin-datalabels 2（Chart.js 4.x 版本，不可任意升級）
 - html2canvas 1.4 + jsPDF 4（PDF 匯出）
-- Supabase JS 2（報告分享功能；IFA 端無帳號，僅用於寫入/讀取 shared_snapshots）
+- Supabase JS 2（IFA Auth、客戶資料與安全分享 RPC）
 - react-router-dom 7（Client View 路由）
 - vitest 4（單元測試）
 - Supabase Auth（IFA 端 email/password 登入）
@@ -86,17 +86,23 @@ src/
       exchangeRate.ts            ← FX 類型定義
       useAppSettings.ts          ← （符號連結）
     share/
-      ShareModal.tsx             ← 快照分享 Modal（一快照一連結；create/manage/revoke 三狀態；upsert/delete Supabase）
+      ShareModal.tsx             ← 快照分享 Modal（一快照一連結；透過安全 RPC create/update/revoke）
       ShareListModal.tsx         ← 所有快照的分享管理入口（列表 + 已分享/未分享 badge）
   pages/
     ClientView/
       index.tsx                  ← 客戶端主容器（tab 切換）
-      PasswordGate.tsx           ← 密碼驗證
+      PasswordGate.tsx           ← 密碼輸入 UI；由 Supabase RPC 在後端驗證
       BasicInfoPage.tsx          ← 唯讀客戶資料展示
       ChartsPage.tsx             ← 依 visible_modules 顯示互動圖表
   components/
     InputForm/
       InputForm.tsx              ← ⚠️ 舊路徑殘留，主體已移至 features/input/
+```
+
+```
+supabase/
+  migrations/
+    202607040001_secure_client_and_sharing.sql ← ifa_clients/shared_snapshots RLS、grants、分享 RPC
 ```
 
 ## 啟動與指令
@@ -122,7 +128,8 @@ npm run preview  # 預覽 production build
 - `user_id` uuid → auth.users（RLS 保護）
 - `name` text
 - `data` jsonb（整個 ClientProfile）
-- 讀寫由 `useClientStore` 管理；`updateClient` debounce 2 秒後 upsert
+- 讀寫由 `useClientStore` 管理；Input 修改先標記 dirty，使用者按「儲存」後才 upsert
+- UI 明確顯示「未儲存／儲存中／已儲存時間／儲存失敗」；未儲存離頁時觸發 browser warning
 
 **localStorage（輔助）：**
 - `ifa_active_client` → 目前選中的 client UUID（跨分頁記憶用）
@@ -144,8 +151,11 @@ v1 → v2 → v3 → v4 → v5 → v6 → v7 → ... → v10 → v11 → v12 →
 
 **Supabase（分享）：**
 - Table: `shared_snapshots`
-- 欄位: `id`, `snapshot_data`, `visible_modules`, `password_hash`, `created_at`, `expires_at`
-- IFA 端無帳號，僅用 anon key 寫入/讀取
+- 欄位: `id`, `user_id`, `snapshot_data`, `visible_modules`, `password_hash`, `created_at`, `expires_at`
+- IFA 端必須登入；建立、更新、撤銷分別透過 `create_shared_snapshot`、`update_shared_snapshot`、`revoke_shared_snapshot` RPC
+- 客戶端只能呼叫 `verify_shared_snapshot` RPC；anon 無法直接 SELECT `shared_snapshots`
+- 密碼由 PostgreSQL `pgcrypto` bcrypt hash/verify，hash 與 snapshot 在驗證成功前不回傳前端
+- Database grants、RLS policies 與 RPC 定義由 `supabase/migrations/` 版本控制
 
 ## 環境變數
 

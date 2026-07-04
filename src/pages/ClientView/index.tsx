@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import type { ClientProfile, VisibleModules } from '../../types/client'
@@ -12,7 +12,7 @@ import { RetirementReport } from '../../features/retirement/RetirementReport'
 
 const DEFAULT_RATES: FxRates = { TWD: 1 }
 
-type LoadState = 'loading' | 'not_found' | 'pending_password' | 'verified'
+type LoadState = 'not_found' | 'pending_password' | 'verified'
 type Tab = 'basic' | 'cashflow' | 'assets' | 'assetGrowth' | 'retirement'
 
 const CHART_TABS: { key: Exclude<Tab, 'basic'>; label: string; moduleKey: keyof VisibleModules }[] = [
@@ -22,47 +22,37 @@ const CHART_TABS: { key: Exclude<Tab, 'basic'>; label: string; moduleKey: keyof 
   { key: 'retirement', label: '退休規劃', moduleKey: 'retirement' },
 ]
 
+interface VerifiedSnapshot {
+  snapshot_data: ClientProfile
+  visible_modules: VisibleModules
+}
+
 export function ClientViewPage() {
   const { id } = useParams<{ id: string }>()
-  const [loadState, setLoadState] = useState<LoadState>(() => (id ? 'loading' : 'not_found'))
-  const [passwordHash, setPasswordHash] = useState('')
+  const [loadState, setLoadState] = useState<LoadState>(() => (id ? 'pending_password' : 'not_found'))
   const [snapshotData, setSnapshotData] = useState<ClientProfile | null>(null)
   const [visibleModules, setVisibleModules] = useState<VisibleModules | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('basic')
 
-  useEffect(() => {
-    if (!id) return
-    supabase
-      .from('shared_snapshots')
-      .select('snapshot_data, visible_modules, password_hash')
-      .eq('id', id)
-      .single()
-      .then(({ data, error }) => {
-        if (error || !data) {
-          setLoadState('not_found')
-          return
-        }
-        const vm = data.visible_modules as VisibleModules
-        setPasswordHash(data.password_hash)
-        setSnapshotData(data.snapshot_data as ClientProfile)
-        setVisibleModules(vm)
-        // Default to first available tab
-        if (vm.basicInfo) {
-          setActiveTab('basic')
-        } else {
-          const first = CHART_TABS.find(t => vm[t.moduleKey])
-          if (first) setActiveTab(first.key)
-        }
-        setLoadState('pending_password')
-      })
-  }, [id])
+  const handleVerify = async (password: string): Promise<boolean> => {
+    if (!id) return false
+    const { data, error } = await supabase.rpc('verify_shared_snapshot', {
+      p_id: id,
+      p_password: password,
+    })
+    if (error || !Array.isArray(data) || data.length !== 1) return false
 
-  if (loadState === 'loading') {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', sans-serif" }}>
-        載入中…
-      </div>
-    )
+    const verified = data[0] as VerifiedSnapshot
+    setSnapshotData(verified.snapshot_data)
+    setVisibleModules(verified.visible_modules)
+    if (verified.visible_modules.basicInfo) {
+      setActiveTab('basic')
+    } else {
+      const first = CHART_TABS.find(tab => verified.visible_modules[tab.moduleKey])
+      if (first) setActiveTab(first.key)
+    }
+    setLoadState('verified')
+    return true
   }
 
   if (loadState === 'not_found') {
@@ -76,12 +66,7 @@ export function ClientViewPage() {
   }
 
   if (loadState === 'pending_password') {
-    return (
-      <PasswordGate
-        passwordHash={passwordHash}
-        onSuccess={() => setLoadState('verified')}
-      />
-    )
+    return <PasswordGate onVerify={handleVerify} />
   }
 
   // Build available tab list from visibleModules
