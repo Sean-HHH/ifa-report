@@ -1,4 +1,4 @@
-# CLAUDE.md — ifa-report 專案規則
+# AGENTS.md — ifa-report 專案規則
 
 ## 啟動協議（每次對話必做，不可跳過）
 

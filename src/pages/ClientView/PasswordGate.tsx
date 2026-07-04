@@ -1,19 +1,10 @@
 import { useState } from 'react'
 
 interface PasswordGateProps {
-  passwordHash: string
-  onSuccess: () => void
+  onVerify: (password: string) => Promise<boolean>
 }
 
-async function sha256Hex(input: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(input)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
-export function PasswordGate({ passwordHash, onSuccess }: PasswordGateProps) {
+export function PasswordGate({ onVerify }: PasswordGateProps) {
   const [input, setInput] = useState('')
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -23,13 +14,14 @@ export function PasswordGate({ passwordHash, onSuccess }: PasswordGateProps) {
     if (!input) return
     setLoading(true)
     setError(false)
-    const hashed = await sha256Hex(input)
-    if (hashed === passwordHash) {
-      onSuccess()
-    } else {
+    try {
+      const verified = await onVerify(input)
+      setError(!verified)
+    } catch {
       setError(true)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
@@ -91,7 +83,7 @@ export function PasswordGate({ passwordHash, onSuccess }: PasswordGateProps) {
           />
           {error && (
             <div style={{ fontSize: 13, color: 'var(--color-danger, #dc2626)', marginBottom: 8 }}>
-              密碼錯誤
+              密碼錯誤、連結無效或已過期
             </div>
           )}
           <button

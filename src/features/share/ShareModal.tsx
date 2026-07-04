@@ -17,11 +17,6 @@ const MODULE_LABELS: { key: keyof VisibleModules; label: string }[] = [
   { key: 'retirement',  label: '退休規劃' },
 ]
 
-async function sha256(text: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
 function buildSnapshotData(client: ClientProfile, snapshot: AssetPeriodSnapshot): ClientProfile {
   return {
     ...client,
@@ -53,22 +48,21 @@ export function ShareModal({ snapshot, client, onClose, onUpdate }: Props) {
     setModules(prev => ({ ...prev, [key]: !prev[key] }))
 
   const handleCreate = async () => {
-    if (!password) return
+    if (password.length < 8) {
+      setError('密碼至少需要 8 個字元。')
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      const password_hash = await sha256(password)
-      const { data, error: dbError } = await supabase
-        .from('shared_snapshots')
-        .insert({
-          snapshot_data: buildSnapshotData(client, snapshot),
-          visible_modules: modules,
-          password_hash,
-        })
-        .select('id')
-        .single()
+      const { data, error: dbError } = await supabase.rpc('create_shared_snapshot', {
+        p_snapshot_data: buildSnapshotData(client, snapshot),
+        p_visible_modules: modules,
+        p_password: password,
+        p_expires_at: null,
+      })
       if (dbError || !data) throw dbError ?? new Error('insert failed')
-      onUpdate({ ...snapshot, shareId: data.id })
+      onUpdate({ ...snapshot, shareId: data as string })
     } catch (err) {
       setError(`分享失敗：${err instanceof Error ? err.message : JSON.stringify(err)}`)
     } finally {
@@ -78,18 +72,20 @@ export function ShareModal({ snapshot, client, onClose, onUpdate }: Props) {
 
   const handleUpdate = async () => {
     if (!snapshot.shareId) return
+    if (password && password.length < 8) {
+      setError('新密碼至少需要 8 個字元。')
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      const payload: Record<string, unknown> = {
-        snapshot_data: buildSnapshotData(client, snapshot),
-        visible_modules: modules,
-      }
-      if (password) payload.password_hash = await sha256(password)
-      const { error: dbError } = await supabase
-        .from('shared_snapshots')
-        .update(payload)
-        .eq('id', snapshot.shareId)
+      const { error: dbError } = await supabase.rpc('update_shared_snapshot', {
+        p_id: snapshot.shareId,
+        p_snapshot_data: buildSnapshotData(client, snapshot),
+        p_visible_modules: modules,
+        p_password: password || null,
+        p_expires_at: null,
+      })
       if (dbError) throw dbError
       setView('manage')
       setPassword('')
@@ -105,10 +101,9 @@ export function ShareModal({ snapshot, client, onClose, onUpdate }: Props) {
     setLoading(true)
     setError(null)
     try {
-      const { error: dbError } = await supabase
-        .from('shared_snapshots')
-        .delete()
-        .eq('id', snapshot.shareId)
+      const { error: dbError } = await supabase.rpc('revoke_shared_snapshot', {
+        p_id: snapshot.shareId,
+      })
       if (dbError) throw dbError
       onUpdate({ ...snapshot, shareId: undefined })
     } catch (err) {
@@ -276,12 +271,12 @@ export function ShareModal({ snapshot, client, onClose, onUpdate }: Props) {
               </button>
               <button
                 onClick={isShared ? handleUpdate : handleCreate}
-                disabled={(!isShared && !password) || loading}
+                disabled={(!isShared && password.length < 8) || loading}
                 style={{
                   padding: '8px 18px', fontSize: 13, fontWeight: 600,
                   border: 'none', borderRadius: 'var(--radius-sm)',
-                  background: ((!isShared && !password) || loading) ? 'var(--color-primary-muted)' : 'var(--color-primary)',
-                  color: '#fff', cursor: ((!isShared && !password) || loading) ? 'not-allowed' : 'pointer',
+                  background: ((!isShared && password.length < 8) || loading) ? 'var(--color-primary-muted)' : 'var(--color-primary)',
+                  color: '#fff', cursor: ((!isShared && password.length < 8) || loading) ? 'not-allowed' : 'pointer',
                 }}
               >
                 {loading ? '處理中…' : isShared ? '確認更新' : '產生連結'}

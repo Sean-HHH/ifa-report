@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { AssetPeriodSnapshot } from './types/client'
 import { ShareModal } from './features/share/ShareModal'
 import { ShareListModal } from './features/share/ShareListModal'
 import { useClientStore } from './hooks/useClientStore'
 import { useAppSettings } from './hooks/useAppSettings'
+import { useAuth } from './features/auth/useAuth'
+import { AuthGate } from './features/auth/AuthGate'
 import { ClientManager } from './features/client/ClientManager'
 import { InputForm } from './features/input/InputForm'
 import { FxPanel } from './features/fx/FxPanel'
@@ -32,8 +34,23 @@ const RC_OPTIONS = [
 ]
 
 export default function App() {
-  const { clients, activeClient, createClient, updateClient, deleteClient, selectClient } = useClientStore()
-  const { reportCurrency, setReportCurrency, effectiveRates, apiRates, manualRates, setManualRate, clearManualRates, loading, lastUpdated } = useAppSettings()
+  const auth = useAuth()
+  const {
+    clients,
+    activeClient,
+    createClient,
+    updateClient,
+    deleteClient,
+    selectClient,
+    saveClient,
+    loading: dataLoading,
+    saving,
+    saveError,
+    lastSavedAt,
+    isDirty,
+    hasUnsavedChanges,
+  } = useClientStore()
+  const { reportCurrency, setReportCurrency, effectiveRates, apiRates, manualRates, setManualRate, clearManualRates, loading: fxLoading, lastUpdated } = useAppSettings()
   const [reportTab, setReportTab] = useState<ReportTab>('cashflow')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [printing, setPrinting] = useState(false)
@@ -41,6 +58,16 @@ export default function App() {
   const [showSnapshotPanel, setShowSnapshotPanel] = useState(false)
   const [showShareListModal, setShowShareListModal] = useState(false)
   const [shareTargetSnapshot, setShareTargetSnapshot] = useState<AssetPeriodSnapshot | null>(null)
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
 
   const handleShareUpdate = (updated: AssetPeriodSnapshot) => {
     if (!activeClient) return
@@ -62,6 +89,18 @@ export default function App() {
   }
 
   const fxProps = { rates: effectiveRates, reportCurrency }
+
+  if (auth.loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)' }}>
+        <div style={{ fontSize: 14, color: 'var(--color-text-muted)' }}>載入中…</div>
+      </div>
+    )
+  }
+
+  if (!auth.user) {
+    return <AuthGate />
+  }
 
   return (
     <>
@@ -119,8 +158,57 @@ export default function App() {
 
           {/* Right side controls */}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Sync indicator */}
+            {dataLoading && (
+              <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+                載入中…
+              </span>
+            )}
+
+            {activeClient && (
+              <>
+                <span style={{
+                  fontSize: 11,
+                  color: saveError
+                    ? 'var(--color-negative)'
+                    : isDirty
+                      ? 'var(--color-accent)'
+                      : 'var(--color-text-muted)',
+                  maxWidth: 240,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }} title={saveError ?? undefined}>
+                  {saveError
+                    ?? (saving
+                      ? '儲存中…'
+                      : isDirty
+                        ? '有未儲存的變更'
+                        : lastSavedAt
+                          ? `已儲存 ${lastSavedAt.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`
+                          : '已載入')}
+                </span>
+                <button
+                  onClick={() => void saveClient(activeClient)}
+                  disabled={saving || !isDirty}
+                  style={{
+                    fontSize: 12,
+                    padding: '6px 14px',
+                    border: 'none',
+                    borderRadius: 'var(--radius-sm)',
+                    background: saving || !isDirty ? 'var(--color-primary-muted)' : 'var(--color-primary)',
+                    color: saving || !isDirty ? 'var(--color-text-muted)' : '#fff',
+                    cursor: saving || !isDirty ? 'not-allowed' : 'pointer',
+                    fontWeight: 600,
+                  }}
+                >
+                  {saving ? '儲存中…' : '儲存'}
+                </button>
+              </>
+            )}
+
             {/* FX rate indicator */}
-            {loading && (
+            {fxLoading && (
               <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>匯率載入中…</span>
             )}
 
@@ -203,6 +291,17 @@ export default function App() {
                 {printing ? '準備中...' : '匯出 PDF'}
               </button>
             )}
+
+            <button onClick={auth.signOut} style={{
+              fontSize: 12, padding: '5px 10px',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--color-surface)',
+              color: 'var(--color-text-muted)',
+              cursor: 'pointer',
+            }}>
+              登出
+            </button>
           </div>
         </header>
 
@@ -226,7 +325,7 @@ export default function App() {
             onSetManualRate={setManualRate}
             onClearAll={clearManualRates}
             lastUpdated={lastUpdated}
-            loading={loading}
+            loading={fxLoading}
             onClose={() => setShowFxPanel(false)}
           />
         )}
