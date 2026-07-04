@@ -1,5 +1,5 @@
 import type { ClientProfile } from '../../../types/client'
-import { Section, AddBtn } from '../shared'
+import { Section, AddBtn, NumInput } from '../shared'
 import { calcCurrentAge } from '../../../types/client'
 
 interface Props {
@@ -32,8 +32,7 @@ export function BasicTab({ c, patch }: Props) {
       <Section title="基本資訊">
         <div className="flex items-center gap-3 mb-2">
           <label className="text-sm text-slate-500 w-28 shrink-0">出生年份</label>
-          <input
-            type="number"
+          <NumInput
             className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-36 focus:border-blue-300 outline-none"
             value={c.birthYear}
             onChange={e => patch({ birthYear: Number(e.target.value) })}
@@ -51,8 +50,7 @@ export function BasicTab({ c, patch }: Props) {
         </div>
         <div className="flex items-center gap-3 mb-1">
           <label className="text-sm text-slate-500 w-28 shrink-0">規劃起點</label>
-          <input
-            type="number"
+          <NumInput
             className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-24 focus:border-blue-300 outline-none"
             value={c.planStartYear ?? new Date().getFullYear()}
             onChange={e => patch({ planStartYear: Number(e.target.value) })}
@@ -80,8 +78,8 @@ export function BasicTab({ c, patch }: Props) {
 
       <Section title="諮詢重點">
         <textarea
-          rows={3}
-          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:border-blue-300 outline-none resize-none"
+          rows={6}
+          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:border-blue-300 outline-none resize-y"
           placeholder="客戶主要的財務擔憂或諮詢目的"
           value={c.consultationFocus ?? ''}
           onChange={e => patch({ consultationFocus: e.target.value })}
@@ -93,8 +91,8 @@ export function BasicTab({ c, patch }: Props) {
           <div key={i} className="flex gap-2 items-start mb-2">
             <span className="text-xs text-slate-400 mt-2.5 shrink-0 w-5">{i + 1}.</span>
             <textarea
-              rows={2}
-              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:border-blue-300 outline-none resize-none"
+              rows={4}
+              className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:border-blue-300 outline-none resize-y"
               value={item}
               onChange={e => updateAdvice(i, e.target.value)}
               placeholder="輸入建議內容"

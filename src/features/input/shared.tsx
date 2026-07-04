@@ -58,12 +58,23 @@ export function Section({ title, children }: { title: string; children: React.Re
   )
 }
 
+export function NumInput({ value, onFocus, ...rest }: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type' | 'value'> & { value?: number }) {
+  return (
+    <input
+      type="number"
+      value={value || ''}
+      onFocus={e => { e.target.select(); onFocus?.(e) }}
+      {...rest}
+    />
+  )
+}
+
 export function NumField({ label, value, onChange, suffix, disabled }: { label: string; value: number; onChange: (v: number) => void; suffix?: string; disabled?: boolean }) {
   return (
     <div className="flex items-center gap-3 mb-2">
       <label className="text-sm text-slate-500 w-36 shrink-0">{label}</label>
       <input type="number" className={`border rounded-lg px-3 py-2 text-sm w-36 outline-none transition-colors ${disabled ? 'border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed' : 'border-slate-200 focus:border-blue-400'}`}
-        value={value} onChange={e => !disabled && onChange(Number(e.target.value))} disabled={disabled} />
+        value={value || ''} onFocus={e => e.target.select()} onChange={e => !disabled && onChange(Number(e.target.value))} disabled={disabled} />
       {suffix && <span className="text-sm text-slate-400">{suffix}</span>}
     </div>
   )

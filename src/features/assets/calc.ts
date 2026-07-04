@@ -157,7 +157,7 @@ export function calcAssetAllocation(c: ClientProfile, rates?: FxRates, reportCur
     const cur = item.currency ?? 'TWD'
     byCurrency[cur] = { amount: (byCurrency[cur]?.amount ?? 0) + converted, pct: 0 }
 
-    const pur = item.purpose ?? (item.category === 'cash' ? 'emergency' : 'growth')
+    const pur = item.category === 'cash' ? 'emergency' : (item.purpose ?? 'growth')
     byPurpose[pur] = { amount: (byPurpose[pur]?.amount ?? 0) + converted, pct: 0 }
   }
 

@@ -1,5 +1,5 @@
 import type { ClientProfile, MajorExpense } from '../../../types/client'
-import { Section, AddBtn } from '../shared'
+import { Section, AddBtn, NumInput } from '../shared'
 
 interface Props {
   c: ClientProfile
@@ -35,15 +35,13 @@ export function MajorExpenseTab({ c, patch }: Props) {
             onChange={e => update(i, { label: e.target.value })}
             placeholder="項目名稱"
           />
-          <input
-            type="number"
+          <NumInput
             className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-28 focus:border-blue-300 outline-none"
             value={item.amount}
             onChange={e => update(i, { amount: Number(e.target.value) })}
             placeholder="金額"
           />
-          <input
-            type="number"
+          <NumInput
             className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-24 focus:border-blue-300 outline-none"
             value={item.year}
             onChange={e => update(i, { year: Number(e.target.value) })}

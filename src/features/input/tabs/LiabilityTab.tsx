@@ -1,5 +1,5 @@
 import type { ClientProfile, LiabilityItem, LiabilityType } from '../../../types/client'
-import { Section, AddBtn, NoteField } from '../shared'
+import { Section, AddBtn, NoteField, NumInput } from '../shared'
 
 interface Props {
   c: ClientProfile
@@ -29,7 +29,7 @@ export function LiabilityTab({ c, patch }: Props) {
             </select>
             <input className="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
               value={item.label} onChange={e => update(i, { label: e.target.value })} placeholder="如：房貸、信用卡費" />
-            <input type="number" className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
+            <NumInput className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 outline-none"
               value={item.amount} onChange={e => update(i, { amount: Number(e.target.value) })} />
             <div className="relative">
               <input type="number" step="0.01" min="0" max="100"
