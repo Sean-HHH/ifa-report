@@ -49,7 +49,7 @@ export interface GrowthYear {
   warningExpense: number      // 觸發警示的支出金額
 }
 
-export function calcAssetGrowth(c: ClientProfile, years = 30): GrowthYear[] {
+export function calcAssetGrowth(c: ClientProfile, years = 30, fxRates?: FxRates): GrowthYear[] {
   const rates = RISK_RETURN[c.riskProfile]
   const effectiveRates = {
     conservative: c.customReturnRate !== null ? c.customReturnRate * 0.8 : rates.conservative,
@@ -65,11 +65,15 @@ export function calcAssetGrowth(c: ClientProfile, years = 30): GrowthYear[] {
   const remainingMonths = 13 - planStartMonth  // 12 when full year
   const monthly = c.monthlyContribution
 
-  // 拆分液態池 vs 不動產池
+  // 拆分液態池 vs 不動產池（所有金額統一換算為 TWD）
+  const toTWD = (amount: number, currency: string) =>
+    convertCurrency(amount, currency, 'TWD', fxRates ?? {})
   const reGross = c.assetItems
     .filter(i => i.category === 'real_estate')
-    .reduce((s, i) => s + i.amount, 0)
-  const liquidAssets = totalAssets(c) - reGross
+    .reduce((s, i) => s + toTWD(i.amount, i.currency ?? 'TWD'), 0)
+  const liquidAssets = c.assetItems
+    .filter(i => i.category !== 'real_estate')
+    .reduce((s, i) => s + toTWD(i.amount, i.currency ?? 'TWD'), 0)
   const liabs = totalLiabilities(c)
 
   // 液態淨值（可為負，若貸款 > 流動資產）
