@@ -13,8 +13,19 @@ import { ChartTooltip } from '../../shared/chartUtils'
 import { CHART_TICK_STYLE, CHART_GRID_COLOR } from '../../shared/chartConstants'
 
 export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { client: ClientProfile; rates: FxRates; reportCurrency: string }) {
-  const data = useMemo(() => calcAssetGrowth(client), [client])
+  const yearsToRetirement = Math.max(client.retirementAge - calcCurrentAge(client.birthYear), 1)
+  const data = useMemo(
+    () => calcAssetGrowth(client, yearsToRetirement + 1),
+    [client, yearsToRetirement],
+  )
   const rates = RISK_RETURN[client.riskProfile]
+  const displayRates = client.customReturnRate != null
+    ? {
+        conservative: client.customReturnRate * 0.8,
+        base: client.customReturnRate,
+        aggressive: client.customReturnRate * 1.2,
+      }
+    : rates
   const nw = useMemo(() => netWorth(client), [client])
   const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, fxRates)
   const disp = (n: number) => fmtAmount(rc(n), reportCurrency)
@@ -36,9 +47,9 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
       <h2 className="text-lg font-bold text-slate-800">資產成長路徑</h2>
 
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label={`保守情境 (${fmtPct(rates.conservative * 100)})`} value={disp(last?.conservative ?? 0)} color="orange" />
-        <StatCard label={`基準情境 (${fmtPct(rates.base * 100)})`} value={disp(last?.base ?? 0)} color="blue" />
-        <StatCard label={`積極情境 (${fmtPct(rates.aggressive * 100)})`} value={disp(last?.aggressive ?? 0)} color="green" />
+        <StatCard label={`保守情境 (${fmtPct(displayRates.conservative * 100)})`} value={disp(last?.conservative ?? 0)} color="orange" />
+        <StatCard label={`基準情境 (${fmtPct(displayRates.base * 100)})`} value={disp(last?.base ?? 0)} color="blue" />
+        <StatCard label={`積極情境 (${fmtPct(displayRates.aggressive * 100)})`} value={disp(last?.aggressive ?? 0)} color="green" />
       </div>
 
       <div className="h-80">
@@ -114,7 +125,9 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
                           <div className="text-xs text-red-500 mt-0.5">流動性不足警示</div>
                         )}
                       </td>
-                      <td className="py-2.5 text-right text-slate-500 align-top">{e.year}</td>
+                      <td className="py-2.5 text-right text-slate-500 align-top whitespace-nowrap">
+                        {e.year}{e.month ? ` / ${e.month}月` : ''}
+                      </td>
                       <td className="py-2.5 text-right font-medium text-red-600 align-top">−{disp(e.amount)}</td>
                     </tr>
                   )
