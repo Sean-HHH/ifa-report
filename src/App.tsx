@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AssetPeriodSnapshot } from './types/client'
+import { exportToPDF } from './shared/pdfExport'
 import { ShareModal } from './features/share/ShareModal'
 import { ShareListModal } from './features/share/ShareListModal'
 import { useClientStore } from './hooks/useClientStore'
@@ -83,9 +84,12 @@ export default function App() {
   const handleExport = async () => {
     if (!activeClient) return
     setPrinting(true)
-    await new Promise(r => setTimeout(r, 600))
-    window.print()
-    setPrinting(false)
+    await new Promise(r => setTimeout(r, 2000))  // 等 Recharts/Chart.js 動畫完成
+    try {
+      await exportToPDF(activeClient.name)
+    } finally {
+      setPrinting(false)
+    }
   }
 
   const fxProps = { rates: effectiveRates, reportCurrency }

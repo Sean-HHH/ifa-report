@@ -42,7 +42,7 @@ export interface GrowthYear {
   conservative: number   // 總資產（液態 + 不動產）保守情境
   base: number           // 總資產基準情境
   aggressive: number     // 總資產積極情境
-  contributed: number
+  zeroBased: number      // 零報酬基準：扣重大支出、加每月投入、0% 報酬
   liquidBase: number     // 液態資產淨值（基準情境），不含不動產
   realEstateValue: number
   liquidityWarning: boolean   // 該年重大支出超過液態資產
@@ -80,8 +80,8 @@ export function calcAssetGrowth(c: ClientProfile, years = 30, fxRates?: FxRates)
   let lcv = liquidAssets - liabs
   let lbv = liquidAssets - liabs
   let lav = liquidAssets - liabs
+  let zeroBase = liquidAssets - liabs  // 零報酬基準：液態部分
   let re = reGross
-  let contributed = 0
 
   const result: GrowthYear[] = []
 
@@ -106,7 +106,7 @@ export function calcAssetGrowth(c: ClientProfile, years = 30, fxRates?: FxRates)
       conservative: lcv + re,
       base: lbv + re,
       aggressive: lav + re,
-      contributed,
+      zeroBased: zeroBase + reGross,  // 不動產維持初始值（0% 成長）
       liquidBase: lbv,
       realEstateValue: re,
       liquidityWarning,
@@ -125,8 +125,8 @@ export function calcAssetGrowth(c: ClientProfile, years = 30, fxRates?: FxRates)
     lcv = (lcv - majorOut) * (1 + yr.conservative) + monthly * yearMonths
     lbv = (lbv - majorOut) * (1 + yr.base) + monthly * yearMonths
     lav = (lav - majorOut) * (1 + yr.aggressive) + monthly * yearMonths
+    zeroBase = zeroBase - majorOut + monthly * yearMonths  // 0% 報酬，扣支出加投入
     re = re * (Math.pow(1 + reRate, yearFraction))
-    contributed += monthly * yearMonths
   }
 
   return result

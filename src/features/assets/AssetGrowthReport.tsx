@@ -26,7 +26,6 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
         aggressive: client.customReturnRate * 1.2,
       }
     : rates
-  const nw = useMemo(() => data[0]?.base ?? 0, [data])
   const rc = (n: number) => convertCurrency(n, 'TWD', reportCurrency, fxRates)
   const disp = (n: number) => fmtAmount(rc(n), reportCurrency)
 
@@ -37,7 +36,7 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
     積極情境: d.aggressive,
     基準情境: d.base,
     保守情境: d.conservative,
-    累積本金: nw + d.contributed,
+    零報酬基準: d.zeroBased,
   }))
 
   const last = data[data.length - 1]
@@ -63,7 +62,7 @@ export function AssetGrowthReport({ client, rates: fxRates, reportCurrency }: { 
             <Line type="monotone" dataKey="積極情境" stroke="#10b981" strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="基準情境" stroke="#3b82f6" strokeWidth={2.5} dot={false} />
             <Line type="monotone" dataKey="保守情境" stroke="#f59e0b" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="累積本金" stroke="#cbd5e1" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+            <Line type="monotone" dataKey="零報酬基準" stroke="#cbd5e1" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
             {warnings.map(w => (
               <ReferenceDot
                 key={w.year}
