@@ -2,15 +2,13 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import type { ClientProfile, VisibleModules } from '../../types/client'
-import type { FxRates } from '../../features/fx/exchangeRate'
+import { useAppSettings } from '../../hooks/useAppSettings'
 import { PasswordGate } from './PasswordGate'
 import { BasicInfoPage } from './BasicInfoPage'
 import { CashFlowReport } from '../../features/cashflow/CashFlowReport'
 import { AssetReport } from '../../features/assets/AssetReport'
 import { AssetGrowthReport } from '../../features/assets/AssetGrowthReport'
 import { RetirementReport } from '../../features/retirement/RetirementReport'
-
-const DEFAULT_RATES: FxRates = { TWD: 1 }
 
 type LoadState = 'not_found' | 'pending_password' | 'verified'
 type Tab = 'basic' | 'cashflow' | 'assets' | 'assetGrowth' | 'retirement'
@@ -29,6 +27,7 @@ interface VerifiedSnapshot {
 
 export function ClientViewPage() {
   const { id } = useParams<{ id: string }>()
+  const { effectiveRates } = useAppSettings()
   const [loadState, setLoadState] = useState<LoadState>(() => (id ? 'pending_password' : 'not_found'))
   const [snapshotData, setSnapshotData] = useState<ClientProfile | null>(null)
   const [visibleModules, setVisibleModules] = useState<VisibleModules | null>(null)
@@ -114,16 +113,16 @@ export function ClientViewPage() {
           {activeTab !== 'basic' && (
             <div style={{ padding: '24px 24px 48px' }}>
               {activeTab === 'cashflow' && visibleModules.cashflow && (
-                <CashFlowReport client={snapshotData} rates={DEFAULT_RATES} reportCurrency="TWD" />
+                <CashFlowReport client={snapshotData} rates={effectiveRates} reportCurrency="TWD" />
               )}
               {activeTab === 'assets' && visibleModules.assets && (
-                <AssetReport client={snapshotData} rates={DEFAULT_RATES} reportCurrency="TWD" />
+                <AssetReport client={snapshotData} rates={effectiveRates} reportCurrency="TWD" />
               )}
               {activeTab === 'assetGrowth' && visibleModules.assetGrowth && (
-                <AssetGrowthReport client={snapshotData} rates={DEFAULT_RATES} reportCurrency="TWD" />
+                <AssetGrowthReport client={snapshotData} rates={effectiveRates} reportCurrency="TWD" />
               )}
               {activeTab === 'retirement' && visibleModules.retirement && (
-                <RetirementReport client={snapshotData} rates={DEFAULT_RATES} reportCurrency="TWD" />
+                <RetirementReport client={snapshotData} rates={effectiveRates} reportCurrency="TWD" />
               )}
             </div>
           )}
