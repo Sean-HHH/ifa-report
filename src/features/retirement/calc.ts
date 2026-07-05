@@ -109,7 +109,7 @@ export function calcRetirement(c: ClientProfile, fxRates?: FxRates): RetirementR
     withdrawalYears.push({
       year: retirementYear,
       age: c.retirementAge + y,
-      conservative: remaining, base: remaining, aggressive: remaining, contributed: 0,
+      conservative: remaining, base: remaining, aggressive: remaining, zeroBased: remaining,
       liquidBase: remaining, realEstateValue: 0,
       liquidityWarning,
       warningExpense: majorOut,
