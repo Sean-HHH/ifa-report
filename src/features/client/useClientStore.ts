@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import type { ClientProfile } from '../../types/client'
+import type { ClientProfile, FinancialScenario } from '../../types/client'
 import { newClient } from '../../types/client'
 import { supabase } from '../../lib/supabase'
 
@@ -123,9 +123,27 @@ function migrate(raw: any): ClientProfile {
     purpose: item.purpose === 'protection' ? 'aggressive' : item.purpose,
   }))
 
+  // v15 → v16: 可自訂的現金水位情境
+  const scenarios: FinancialScenario[] = Array.isArray(raw.scenarios)
+    ? raw.scenarios.map((scenario: Partial<FinancialScenario>) => ({
+      ...scenario,
+      id: scenario.id ?? crypto.randomUUID(),
+      name: scenario.name ?? '未命名情境',
+      startYear: scenario.startYear ?? currentYear,
+      startMonth: scenario.startMonth ?? 1,
+      monthlyIncome: scenario.monthlyIncome ?? null,
+      monthlyExpenses: scenario.monthlyExpenses ?? null,
+      monthlyContribution: scenario.monthlyContribution ?? 0,
+      recurringExpenses: Array.isArray(scenario.recurringExpenses) ? scenario.recurringExpenses : [],
+      oneTimeExpenses: Array.isArray(scenario.oneTimeExpenses) ? scenario.oneTimeExpenses : [],
+      safetyMonths: scenario.safetyMonths ?? 6,
+      projectionMonths: scenario.projectionMonths ?? 36,
+    }))
+    : []
+
   return {
     ...raw,
-    __schemaVersion: 15,
+    __schemaVersion: 16,
     assetItems: v15AssetItems,
     liabilityItems: rawLiabilities,
     incomes,
@@ -138,6 +156,7 @@ function migrate(raw: any): ClientProfile {
     useInvestibleCashFlow: raw.useInvestibleCashFlow ?? false,
     birthYear,
     retirementLifespan,
+    scenarios,
   }
 }
 

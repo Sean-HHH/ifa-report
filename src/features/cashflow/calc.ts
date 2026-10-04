@@ -1,5 +1,7 @@
-import type { ClientProfile } from '../../types/client'
+import type { ClientProfile, FinancialScenario } from '../../types/client'
 import type { IncomeType, ExpenseCategory, PayFrequency } from '../../types/client'
+import type { FxRates } from '../fx/exchangeRate'
+import { convertCurrency } from '../assets/calc'
 
 function toMonthlyEquiv(amount: number, freq: PayFrequency = 'monthly'): number {
   if (freq === 'quarterly') return (amount * 4) / 12
@@ -207,5 +209,138 @@ export function calcRemainingYearCashFlow(c: ClientProfile): RemainingYearResult
     remainingNetTotal: remainingTotalIncome - remainingTotalExpenses,
     alreadyOccurredIncomes,
     alreadyOccurredExpenses,
+  }
+}
+
+export interface RunwayDate {
+  year: number
+  month: number
+}
+
+export interface RunwayMonth extends RunwayDate {
+  openingCash: number
+  income: number
+  expenses: number
+  majorExpenses: number
+  contribution: number
+  closingCash: number
+  isScenarioActive: boolean
+}
+
+export interface RunwayResult {
+  months: RunwayMonth[]
+  startingCash: number
+  cashAtTransition: number | null
+  safetyFloor: number
+  firstBelowSafety: RunwayDate | null
+  firstDepleted: RunwayDate | null
+  monthsUntilDepletion: number | null
+  minimumMonthlyIncome: number | null
+  transitionIndex: number
+}
+
+function monthOffset(date: RunwayDate): number {
+  return date.year * 12 + date.month - 1
+}
+
+function monthAt(start: RunwayDate, offset: number): RunwayDate {
+  const index = monthOffset(start) + offset
+  return { year: Math.floor(index / 12), month: index % 12 + 1 }
+}
+
+function occursInMonth(frequency: PayFrequency = 'monthly', payMonths: number[] | undefined, month: number): boolean {
+  const months = resolvePayMonths(frequency, payMonths)
+  return months === null || months.includes(month)
+}
+
+export function calcRunway(
+  client: ClientProfile,
+  scenario: FinancialScenario,
+  rates: FxRates,
+  projectionStart: RunwayDate = monthAt({ year: new Date().getFullYear(), month: new Date().getMonth() + 1 }, 1),
+): RunwayResult {
+  const projectionMonths = Math.min(60, Math.max(1, Math.trunc(scenario.projectionMonths || 36)))
+  const transition = monthOffset({ year: scenario.startYear, month: scenario.startMonth })
+  const firstMonth = monthOffset(projectionStart)
+  const transitionIndex = Math.max(0, transition - firstMonth)
+  const hasTransition = transitionIndex < projectionMonths
+  const recurring = (scenario.recurringExpenses ?? []).reduce((sum, item) => sum + Math.max(0, item.amount), 0)
+  const inflation = client.globalInflationRate ?? 0.02
+  const yearAtTransition = Math.max(projectionStart.year, scenario.startYear)
+  const transitionExpenseAverage = client.expenses.reduce((sum, item) =>
+    sum + toMonthlyEquiv(item.amount, item.frequency) * Math.pow(1 + inflation, yearAtTransition - projectionStart.year), 0)
+  const safetyFloor = Math.max(0, (scenario.monthlyExpenses ?? transitionExpenseAverage) + recurring)
+    * Math.max(0, scenario.safetyMonths)
+  const startingCash = client.assetItems
+    .filter(item => item.category === 'cash')
+    .reduce((sum, item) => sum + convertCurrency(item.amount, item.currency ?? 'TWD', 'TWD', rates), 0)
+  const baselineContribution = client.useInvestibleCashFlow
+    ? Math.max(0, calcCashFlow(client).investibleCashFlow)
+    : Math.max(0, client.monthlyContribution)
+
+  const months: RunwayMonth[] = []
+  let cash = startingCash
+  let firstBelowSafety: RunwayDate | null = cash < safetyFloor ? projectionStart : null
+  let firstDepleted: RunwayDate | null = cash <= 0 ? projectionStart : null
+
+  for (let index = 0; index < projectionMonths; index++) {
+    const date = monthAt(projectionStart, index)
+    const active = monthOffset(date) >= transition
+    const yearOffset = date.year - projectionStart.year
+    const itemizedIncome = client.incomes.reduce((sum, item) =>
+      sum + (occursInMonth(item.frequency, item.payMonths, date.month)
+        ? item.amount * Math.pow(1 + (item.growthRate ?? 0), yearOffset) : 0), 0)
+    const itemizedExpenses = client.expenses.reduce((sum, item) =>
+      sum + (occursInMonth(item.frequency, item.payMonths, date.month)
+        ? item.amount * Math.pow(1 + inflation, yearOffset) : 0), 0)
+    const income = Math.max(0, active ? (scenario.monthlyIncome ?? itemizedIncome) : itemizedIncome)
+    const expenses = Math.max(0, active ? (scenario.monthlyExpenses ?? itemizedExpenses) + recurring : itemizedExpenses)
+    const planned = client.majorExpenses
+      .filter(item => item.year === date.year && (item.month ?? 12) === date.month)
+      .reduce((sum, item) => sum + Math.max(0, item.amount), 0)
+    const scenarioExpenses = active
+      ? (scenario.oneTimeExpenses ?? [])
+        .filter(item => item.year === date.year && item.month === date.month)
+        .reduce((sum, item) => sum + Math.max(0, item.amount), 0)
+      : 0
+    const majorExpenses = planned + scenarioExpenses
+    const contribution = active ? Math.max(0, scenario.monthlyContribution) : baselineContribution
+    const openingCash = cash
+    cash += income - expenses - majorExpenses - contribution
+    months.push({ ...date, openingCash, income, expenses, majorExpenses, contribution, closingCash: cash, isScenarioActive: active })
+    if (!firstBelowSafety && cash < safetyFloor) firstBelowSafety = date
+    if (!firstDepleted && cash <= 0) firstDepleted = date
+  }
+
+  let minimumMonthlyIncome: number | null = null
+  const breachedBeforeTransition = hasTransition && (
+    months[transitionIndex].openingCash < safetyFloor ||
+    (firstBelowSafety !== null && monthOffset(firstBelowSafety) < transition)
+  )
+  if (hasTransition && !breachedBeforeTransition) {
+    let noIncomeCash = months[transitionIndex].openingCash
+    let needed = 0
+    for (let index = transitionIndex; index < months.length; index++) {
+      const month = months[index]
+      noIncomeCash -= month.expenses + month.majorExpenses + month.contribution
+      needed = Math.max(needed, (safetyFloor - noIncomeCash) / (index - transitionIndex + 1))
+    }
+    minimumMonthlyIncome = Math.ceil(needed)
+  }
+
+  const depletedIndex = firstDepleted
+    ? Math.max(0, monthOffset(firstDepleted) - firstMonth)
+    : -1
+
+  return {
+    months,
+    startingCash,
+    cashAtTransition: hasTransition ? months[transitionIndex].openingCash : null,
+    safetyFloor,
+    firstBelowSafety,
+    firstDepleted,
+    monthsUntilDepletion: depletedIndex < 0 ? null : Math.max(0, depletedIndex - transitionIndex),
+    minimumMonthlyIncome,
+    transitionIndex: hasTransition ? transitionIndex : -1,
   }
 }

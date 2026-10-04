@@ -5,18 +5,19 @@ import type { ClientProfile, VisibleModules } from '../../types/client'
 import { useAppSettings } from '../../hooks/useAppSettings'
 import { PasswordGate } from './PasswordGate'
 import { BasicInfoPage } from './BasicInfoPage'
-import { CashFlowReport } from '../../features/cashflow/CashFlowReport'
+import { CashFlowReport, RunwayReport } from '../../features/cashflow/CashFlowReport'
 import { AssetReport } from '../../features/assets/AssetReport'
 import { AssetGrowthReport } from '../../features/assets/AssetGrowthReport'
 import { RetirementReport } from '../../features/retirement/RetirementReport'
 
 type LoadState = 'not_found' | 'pending_password' | 'verified'
-type Tab = 'basic' | 'cashflow' | 'assets' | 'assetGrowth' | 'retirement'
+type Tab = 'basic' | 'cashflow' | 'assets' | 'assetGrowth' | 'runway' | 'retirement'
 
 const CHART_TABS: { key: Exclude<Tab, 'basic'>; label: string; moduleKey: keyof VisibleModules }[] = [
   { key: 'cashflow',    label: '收支分析', moduleKey: 'cashflow' },
   { key: 'assets',     label: '資產組合', moduleKey: 'assets' },
   { key: 'assetGrowth', label: '資產成長', moduleKey: 'assetGrowth' },
+  { key: 'runway',      label: '現金水位', moduleKey: 'runway' },
   { key: 'retirement', label: '退休規劃', moduleKey: 'retirement' },
 ]
 
@@ -74,6 +75,8 @@ export function ClientViewPage() {
   for (const t of CHART_TABS) {
     if (visibleModules?.[t.moduleKey]) allTabs.push({ key: t.key, label: t.label })
   }
+  const [snapshotYear, snapshotMonth] = (snapshotData?.assetSnapshots?.[0]?.snapshotDate ?? '').slice(0, 7).split('-').map(Number)
+  const runwayAsOf = snapshotYear && snapshotMonth ? { year: snapshotYear, month: snapshotMonth } : undefined
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg)', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', sans-serif" }}>
@@ -120,6 +123,9 @@ export function ClientViewPage() {
               )}
               {activeTab === 'assetGrowth' && visibleModules.assetGrowth && (
                 <AssetGrowthReport client={snapshotData} rates={effectiveRates} reportCurrency="TWD" />
+              )}
+              {activeTab === 'runway' && visibleModules.runway && (
+                <RunwayReport client={snapshotData} rates={effectiveRates} reportCurrency="TWD" asOf={runwayAsOf} />
               )}
               {activeTab === 'retirement' && visibleModules.retirement && (
                 <RetirementReport client={snapshotData} rates={effectiveRates} reportCurrency="TWD" />

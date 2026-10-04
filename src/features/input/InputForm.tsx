@@ -9,8 +9,9 @@ import { LiabilityTab } from './tabs/LiabilityTab'
 import { InvestTab } from './tabs/InvestTab'
 import { MajorExpenseTab } from './tabs/MajorExpenseTab'
 import { RetirementTab } from './tabs/RetirementTab'
+import { ScenarioTab } from './tabs/ScenarioTab'
 
-type TabId = 'basic' | 'cashflow' | 'assets' | 'invest' | 'major' | 'retirement'
+type TabId = 'basic' | 'cashflow' | 'assets' | 'invest' | 'major' | 'scenario' | 'retirement'
 
 const TAB_LABELS: Record<TabId, string> = {
   basic: '基本',
@@ -18,6 +19,7 @@ const TAB_LABELS: Record<TabId, string> = {
   assets: '資產',
   invest: '投資',
   major: '支出',
+  scenario: '情境',
   retirement: '退休',
 }
 
@@ -50,7 +52,7 @@ export function InputForm({ client: c, onChange, rates }: Props) {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-100">
+      <div className="flex border-b border-slate-100 overflow-x-auto">
         {TABS.map(t => (
           <button key={t} onClick={() => setTab(t)}
             style={tab === t ? { borderBottom: '2px solid var(--color-lime)', color: 'var(--color-text-primary)', fontWeight: 600 } : {}}
@@ -68,6 +70,7 @@ export function InputForm({ client: c, onChange, rates }: Props) {
         {tab === 'assets'      && <><AssetTab c={c} patch={patch} rates={rates} /><LiabilityTab c={c} patch={patch} /></>}
         {tab === 'invest'      && <InvestTab c={c} patch={patch} rates={rates} />}
         {tab === 'major'       && <MajorExpenseTab c={c} patch={patch} />}
+        {tab === 'scenario'    && <ScenarioTab c={c} patch={patch} />}
         {tab === 'retirement'  && <RetirementTab c={c} patch={patch} />}
       </div>
     </div>

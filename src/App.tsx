@@ -11,17 +11,18 @@ import { ClientManager } from './features/client/ClientManager'
 import { InputForm } from './features/input/InputForm'
 import { FxPanel } from './features/fx/FxPanel'
 import { SnapshotPanel } from './features/assets/SnapshotPanel'
-import { CashFlowReport } from './features/cashflow/CashFlowReport'
+import { CashFlowReport, RunwayReport } from './features/cashflow/CashFlowReport'
 import { AssetReport } from './features/assets/AssetReport'
 import { AssetGrowthReport } from './features/assets/AssetGrowthReport'
 import { RetirementReport } from './features/retirement/RetirementReport'
 
-type ReportTab = 'cashflow' | 'assets' | 'growth' | 'retirement'
+type ReportTab = 'cashflow' | 'assets' | 'growth' | 'runway' | 'retirement'
 
 const tabLabels: Record<ReportTab, string> = {
   cashflow: '收支分析',
   assets: '資產組合',
   growth: '資產成長',
+  runway: '現金水位',
   retirement: '退休規劃',
 }
 
@@ -367,7 +368,7 @@ export default function App() {
             {/* Report panel */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               {/* Tab bar — 列印時隱藏 */}
-              <div data-print-hide style={{ display: 'flex', borderBottom: `1px solid var(--color-border)`, background: 'var(--color-surface)', padding: '0 16px', flexShrink: 0 }}>
+              <div data-print-hide style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid var(--color-border)`, background: 'var(--color-surface)', padding: '0 16px', flexShrink: 0 }}>
                 {(Object.keys(tabLabels) as ReportTab[]).map(t => (
                   <button key={t} onClick={() => setReportTab(t)} style={{
                     padding: '12px 20px', fontSize: 14, fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer',
@@ -388,6 +389,7 @@ export default function App() {
                     <CashFlowReport client={activeClient} {...fxProps} />
                     <AssetReport client={activeClient} {...fxProps} />
                     <AssetGrowthReport client={activeClient} {...fxProps} />
+                    <RunwayReport client={activeClient} {...fxProps} printAll />
                     <RetirementReport client={activeClient} {...fxProps} />
                   </>
                 ) : (
@@ -395,6 +397,7 @@ export default function App() {
                     {reportTab === 'cashflow' && <CashFlowReport client={activeClient} {...fxProps} />}
                     {reportTab === 'assets' && <AssetReport client={activeClient} {...fxProps} />}
                     {reportTab === 'growth' && <AssetGrowthReport client={activeClient} {...fxProps} />}
+                    {reportTab === 'runway' && <RunwayReport client={activeClient} {...fxProps} />}
                     {reportTab === 'retirement' && <RetirementReport client={activeClient} {...fxProps} />}
                   </>
                 )}

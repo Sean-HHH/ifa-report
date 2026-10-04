@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ClientProfile, VisibleModules, AssetPeriodSnapshot } from '../../types/client'
 import { supabase } from '../../lib/supabase'
 
@@ -14,15 +14,17 @@ const MODULE_LABELS: { key: keyof VisibleModules; label: string }[] = [
   { key: 'cashflow',    label: '收支分析' },
   { key: 'assets',      label: '資產組合' },
   { key: 'assetGrowth', label: '資產成長' },
+  { key: 'runway',      label: '現金水位' },
   { key: 'retirement',  label: '退休規劃' },
 ]
 
-function buildSnapshotData(client: ClientProfile, snapshot: AssetPeriodSnapshot): ClientProfile {
+function buildSnapshotData(client: ClientProfile, snapshot: AssetPeriodSnapshot, modules: VisibleModules): ClientProfile {
   return {
     ...client,
     assetItems: snapshot.assetItems ?? client.assetItems,
     assetSnapshots: [snapshot],
     ledgerEntries: client.ledgerEntries.filter(e => e.snapshotId === snapshot.id),
+    scenarios: modules.runway ? client.scenarios ?? [] : [],
   }
 }
 
@@ -37,12 +39,29 @@ export function ShareModal({ snapshot, client, onClose, onUpdate }: Props) {
   const [view, setView] = useState<'manage' | 'update'>(isShared ? 'manage' : 'manage')
   const [password, setPassword] = useState('')
   const [modules, setModules] = useState<VisibleModules>({
-    basicInfo: true, cashflow: true, assets: true, assetGrowth: true, retirement: true,
+    basicInfo: true, cashflow: true, assets: true, assetGrowth: true, retirement: true, runway: false,
   })
+  const [modulesLoaded, setModulesLoaded] = useState(!snapshot.shareId)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [revokeConfirm, setRevokeConfirm] = useState(false)
+
+  useEffect(() => {
+    if (!snapshot.shareId) return
+    let cancelled = false
+    void supabase.from('shared_snapshots').select('visible_modules').eq('id', snapshot.shareId).single()
+      .then(({ data, error: dbError }) => {
+        if (cancelled) return
+        if (dbError || !data) {
+          setError('無法讀取既有分享設定，請稍後再試。')
+          return
+        }
+        setModules(current => ({ ...current, ...(data.visible_modules as Partial<VisibleModules>) }))
+        setModulesLoaded(true)
+      })
+    return () => { cancelled = true }
+  }, [snapshot.shareId])
 
   const toggleModule = (key: keyof VisibleModules) =>
     setModules(prev => ({ ...prev, [key]: !prev[key] }))
@@ -56,7 +75,7 @@ export function ShareModal({ snapshot, client, onClose, onUpdate }: Props) {
     setError(null)
     try {
       const { data, error: dbError } = await supabase.rpc('create_shared_snapshot', {
-        p_snapshot_data: buildSnapshotData(client, snapshot),
+        p_snapshot_data: buildSnapshotData(client, snapshot, modules),
         p_visible_modules: modules,
         p_password: password,
         p_expires_at: null,
@@ -71,7 +90,7 @@ export function ShareModal({ snapshot, client, onClose, onUpdate }: Props) {
   }
 
   const handleUpdate = async () => {
-    if (!snapshot.shareId) return
+    if (!snapshot.shareId || !modulesLoaded) return
     if (password && password.length < 8) {
       setError('新密碼至少需要 8 個字元。')
       return
@@ -81,7 +100,7 @@ export function ShareModal({ snapshot, client, onClose, onUpdate }: Props) {
     try {
       const { error: dbError } = await supabase.rpc('update_shared_snapshot', {
         p_id: snapshot.shareId,
-        p_snapshot_data: buildSnapshotData(client, snapshot),
+        p_snapshot_data: buildSnapshotData(client, snapshot, modules),
         p_visible_modules: modules,
         p_password: password || null,
         p_expires_at: null,
@@ -185,7 +204,7 @@ export function ShareModal({ snapshot, client, onClose, onUpdate }: Props) {
                 }}>
                   {copied ? '已複製 ✓' : '複製連結'}
                 </button>
-                <button onClick={() => { setView('update'); setPassword('') }} style={{
+                <button onClick={() => { setView('update'); setPassword('') }} disabled={!modulesLoaded} style={{
                   padding: '8px 16px', fontSize: 13,
                   border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
                   background: 'var(--color-surface)', color: 'var(--color-text-secondary)', cursor: 'pointer',
@@ -271,12 +290,12 @@ export function ShareModal({ snapshot, client, onClose, onUpdate }: Props) {
               </button>
               <button
                 onClick={isShared ? handleUpdate : handleCreate}
-                disabled={(!isShared && password.length < 8) || loading}
+                disabled={(!isShared && password.length < 8) || loading || !modulesLoaded}
                 style={{
                   padding: '8px 18px', fontSize: 13, fontWeight: 600,
                   border: 'none', borderRadius: 'var(--radius-sm)',
-                  background: ((!isShared && password.length < 8) || loading) ? 'var(--color-primary-muted)' : 'var(--color-primary)',
-                  color: '#fff', cursor: ((!isShared && password.length < 8) || loading) ? 'not-allowed' : 'pointer',
+                  background: ((!isShared && password.length < 8) || loading || !modulesLoaded) ? 'var(--color-primary-muted)' : 'var(--color-primary)',
+                  color: '#fff', cursor: ((!isShared && password.length < 8) || loading || !modulesLoaded) ? 'not-allowed' : 'pointer',
                 }}
               >
                 {loading ? '處理中…' : isShared ? '確認更新' : '產生連結'}

@@ -142,6 +142,34 @@ export interface MajorExpense {
   month?: number  // 1–12，選填；未設定時視為不限月份
 }
 
+export interface ScenarioRecurringExpense {
+  id: string
+  label: string
+  amount: number
+}
+
+export interface ScenarioOneTimeExpense {
+  id: string
+  label: string
+  amount: number
+  year: number
+  month: number
+}
+
+export interface FinancialScenario {
+  id: string
+  name: string
+  startYear: number
+  startMonth: number
+  monthlyIncome: number | null      // null = 沿用原始收入明細；0 = 無收入
+  monthlyExpenses: number | null    // null = 沿用原始支出明細
+  monthlyContribution: number       // 情境開始後每月投入；0 = 暫停投入
+  recurringExpenses: ScenarioRecurringExpense[]
+  oneTimeExpenses: ScenarioOneTimeExpense[]
+  safetyMonths: number
+  projectionMonths: number
+}
+
 export type RiskProfile = 'conservative' | 'moderate' | 'aggressive'
 
 export interface ClientProfile {
@@ -180,6 +208,7 @@ export interface ClientProfile {
   retirementLifespan: number
   targetMonthlyRetirementIncome: number
   majorExpenses: MajorExpense[]
+  scenarios?: FinancialScenario[]
   withdrawalRate?: number         // 安全提領率，預設 0.04
   retirementLumpSum?: number      // 一次性退休金（勞退、資遣費等），退休時名目值
   monthlyPension?: number         // 月退休年金（勞保月退等），今日幣值
@@ -195,6 +224,7 @@ export interface VisibleModules {
   assets: boolean
   assetGrowth: boolean
   retirement: boolean
+  runway?: boolean
 }
 
 export interface SharedSnapshot {
@@ -250,6 +280,7 @@ export function newClient(): ClientProfile {
     retirementLifespan: 30,
     targetMonthlyRetirementIncome: 50000,
     majorExpenses: [],
+    scenarios: [],
     withdrawalRate: 0.04,
     retirementLumpSum: 0,
     monthlyPension: 0,
