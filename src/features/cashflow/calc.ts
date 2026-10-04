@@ -232,8 +232,10 @@ export interface RunwayResult {
   startingCash: number
   cashAtTransition: number | null
   safetyFloor: number
-  firstBelowSafety: RunwayDate | null
-  firstDepleted: RunwayDate | null
+  firstBelowSafetyBeforeTransition: RunwayDate | null
+  firstBelowSafetyAfterTransition: RunwayDate | null
+  firstDepletedBeforeTransition: RunwayDate | null
+  firstDepletedAfterTransition: RunwayDate | null
   monthsUntilDepletion: number | null
   minimumMonthlyIncome: number | null
   transitionIndex: number
@@ -280,8 +282,10 @@ export function calcRunway(
 
   const months: RunwayMonth[] = []
   let cash = startingCash
-  let firstBelowSafety: RunwayDate | null = cash < safetyFloor ? projectionStart : null
-  let firstDepleted: RunwayDate | null = cash <= 0 ? projectionStart : null
+  let firstBelowSafetyBeforeTransition: RunwayDate | null = null
+  let firstBelowSafetyAfterTransition: RunwayDate | null = null
+  let firstDepletedBeforeTransition: RunwayDate | null = null
+  let firstDepletedAfterTransition: RunwayDate | null = null
 
   for (let index = 0; index < projectionMonths; index++) {
     const date = monthAt(projectionStart, index)
@@ -308,17 +312,19 @@ export function calcRunway(
     const openingCash = cash
     cash += income - expenses - majorExpenses - contribution
     months.push({ ...date, openingCash, income, expenses, majorExpenses, contribution, closingCash: cash, isScenarioActive: active })
-    if (!firstBelowSafety && cash < safetyFloor) firstBelowSafety = date
-    if (!firstDepleted && cash <= 0) firstDepleted = date
+    if (active) {
+      if (!firstBelowSafetyAfterTransition && cash < safetyFloor) firstBelowSafetyAfterTransition = date
+      if (!firstDepletedAfterTransition && cash <= 0) firstDepletedAfterTransition = date
+    } else {
+      if (!firstBelowSafetyBeforeTransition && cash < safetyFloor) firstBelowSafetyBeforeTransition = date
+      if (!firstDepletedBeforeTransition && cash <= 0) firstDepletedBeforeTransition = date
+    }
   }
 
   let minimumMonthlyIncome: number | null = null
-  const breachedBeforeTransition = hasTransition && (
-    months[transitionIndex].openingCash < safetyFloor ||
-    (firstBelowSafety !== null && monthOffset(firstBelowSafety) < transition)
-  )
-  if (hasTransition && !breachedBeforeTransition) {
-    let noIncomeCash = months[transitionIndex].openingCash
+  const cashAtTransition = hasTransition ? months[transitionIndex].openingCash : null
+  if (cashAtTransition !== null && cashAtTransition >= safetyFloor) {
+    let noIncomeCash = cashAtTransition
     let needed = 0
     for (let index = transitionIndex; index < months.length; index++) {
       const month = months[index]
@@ -328,17 +334,19 @@ export function calcRunway(
     minimumMonthlyIncome = Math.ceil(needed)
   }
 
-  const depletedIndex = firstDepleted
-    ? Math.max(0, monthOffset(firstDepleted) - firstMonth)
+  const depletedIndex = firstDepletedAfterTransition
+    ? Math.max(0, monthOffset(firstDepletedAfterTransition) - firstMonth)
     : -1
 
   return {
     months,
     startingCash,
-    cashAtTransition: hasTransition ? months[transitionIndex].openingCash : null,
+    cashAtTransition,
     safetyFloor,
-    firstBelowSafety,
-    firstDepleted,
+    firstBelowSafetyBeforeTransition,
+    firstBelowSafetyAfterTransition,
+    firstDepletedBeforeTransition,
+    firstDepletedAfterTransition,
     monthsUntilDepletion: depletedIndex < 0 ? null : Math.max(0, depletedIndex - transitionIndex),
     minimumMonthlyIncome,
     transitionIndex: hasTransition ? transitionIndex : -1,

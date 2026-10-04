@@ -400,6 +400,10 @@ function dateLabel(date: RunwayDate | null): string {
   return date ? `${date.year}/${String(date.month).padStart(2, '0')}` : '推算期內未發生'
 }
 
+function afterTransitionDateLabel(result: RunwayResult, date: RunwayDate | null): string {
+  return result.transitionIndex < 0 ? '轉換月超出推算期' : dateLabel(date)
+}
+
 function RunwayOverview({ projections, selectedId, onSelect, printAll, disp, projectionStart }: {
   projections: ScenarioProjection[]
   selectedId: string
@@ -412,7 +416,7 @@ function RunwayOverview({ projections, selectedId, onSelect, printAll, disp, pro
     <>
       <h2 className="text-lg font-bold text-slate-800">現金水位推算</h2>
       <p className="text-xs text-slate-500 leading-5">
-        自資料基準的下一個完整月份（{dateLabel(projectionStart)}）推算。從現金存款起算；應收款、股票與其他資產不計入起始現金。定期投資視為現金流出，未計入投資報酬或資產出售。
+        從 {dateLabel(projectionStart)} 起逐月推算，假設「資產」中的現金存款是該月月初餘額；起算前尚未計入的收支不會自動補算。應收款、股票與其他資產不計入起始現金。定期投資視為現金流出，未計入投資報酬或資產出售。
       </p>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[600px] text-xs border-collapse">
@@ -420,9 +424,9 @@ function RunwayOverview({ projections, selectedId, onSelect, printAll, disp, pro
             <tr className="border-b border-slate-200 text-left text-slate-500">
               <th className="py-2 pr-3 font-medium">情境</th>
               <th className="py-2 pr-3 font-medium">轉換年月</th>
-              <th className="py-2 pr-3 font-medium">轉換前現金</th>
-              <th className="py-2 pr-3 font-medium">低於安全水位</th>
-              <th className="py-2 font-medium">現金用盡</th>
+              <th className="py-2 pr-3 font-medium">轉換月初現金</th>
+              <th className="py-2 pr-3 font-medium">轉換後月末低於水位</th>
+              <th className="py-2 font-medium">轉換後月末現金用盡</th>
             </tr>
           </thead>
           <tbody>
@@ -437,8 +441,8 @@ function RunwayOverview({ projections, selectedId, onSelect, printAll, disp, pro
                 </td>
                 <td className="py-2 pr-3 text-slate-600">{dateLabel({ year: scenario.startYear, month: scenario.startMonth })}</td>
                 <td className="py-2 pr-3 text-slate-600">{result.cashAtTransition === null ? '超出推算期' : disp(result.cashAtTransition)}</td>
-                <td className={`py-2 pr-3 ${result.firstBelowSafety ? 'text-amber-700' : 'text-slate-500'}`}>{dateLabel(result.firstBelowSafety)}</td>
-                <td className={`py-2 ${result.firstDepleted ? 'text-red-700' : 'text-slate-500'}`}>{dateLabel(result.firstDepleted)}</td>
+                <td className={`py-2 pr-3 ${result.firstBelowSafetyAfterTransition ? 'text-amber-700' : 'text-slate-500'}`}>{afterTransitionDateLabel(result, result.firstBelowSafetyAfterTransition)}</td>
+                <td className={`py-2 ${result.firstDepletedAfterTransition ? 'text-red-700' : 'text-slate-500'}`}>{afterTransitionDateLabel(result, result.firstDepletedAfterTransition)}</td>
               </tr>
             ))}
           </tbody>
@@ -456,11 +460,10 @@ function RunwayDetail({ scenario, result, rates, reportCurrency }: ScenarioProje
     現金水位: rc(month.closingCash),
   }))
   const safetyLine = rc(result.safetyFloor)
+  const monthsAfterTransition = result.transitionIndex < 0 ? 0 : result.months.length - result.transitionIndex
   const runwayText = result.monthsUntilDepletion === null
-    ? `超過 ${result.months.length} 個月`
+    ? `至少 ${monthsAfterTransition} 個月`
     : `${result.monthsUntilDepletion} 個完整月`
-  const depletedBeforeTransition = result.firstDepleted &&
-    result.firstDepleted.year * 12 + result.firstDepleted.month < scenario.startYear * 12 + scenario.startMonth
 
   return (
     <div className="space-y-5">
@@ -480,19 +483,26 @@ function RunwayDetail({ scenario, result, rates, reportCurrency }: ScenarioProje
       </div>
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-        <StatCard label="起始現金存款" value={disp(result.startingCash)} />
+        <StatCard label="起始現金存款" value={disp(result.startingCash)}
+          sub={result.startingCash < result.safetyFloor ? `期初低於安全水位 ${disp(result.safetyFloor - result.startingCash)}` : undefined} />
         <StatCard label={`安全水位 · ${scenario.safetyMonths} 個月`} value={disp(result.safetyFloor)} color="orange" />
-        <StatCard label="轉換後可撐" value={result.transitionIndex < 0 ? '超出推算期' : depletedBeforeTransition ? '轉換前已用盡' : runwayText}
-          color={result.firstDepleted ? 'red' : 'green'} />
-        <StatCard label="維持安全水位所需月收入" value={result.minimumMonthlyIncome === null ? '無法估算' : disp(result.minimumMonthlyIncome)}
-          sub={result.minimumMonthlyIncome === null ? '轉換前已跌破安全水位，或轉換月超出推算期' : '從轉換月起，每月固定收入的最低估計'}
+        <StatCard label="轉換後可撐" value={result.transitionIndex < 0 ? '超出推算期' : runwayText}
+          color={result.transitionIndex < 0 ? 'blue' : result.firstDepletedAfterTransition ? 'red' : 'green'} />
+        <StatCard label="所需最低月收入" value={result.minimumMonthlyIncome === null ? '無法估算' : disp(result.minimumMonthlyIncome)}
+          sub={result.minimumMonthlyIncome === null
+            ? result.transitionIndex < 0 ? '轉換月超出推算期' : '轉換月初現金已低於安全水位'
+            : '從轉換月起維持安全水位的固定月收入'}
           color="blue" />
       </div>
 
-      <div className="text-xs text-slate-500">
-        首次低於安全水位：<span className="font-semibold text-amber-700">{dateLabel(result.firstBelowSafety)}</span>
-        <span className="mx-2 text-slate-300">|</span>
-        現金用盡：<span className="font-semibold text-red-700">{dateLabel(result.firstDepleted)}</span>
+      <div className="space-y-1 text-xs text-slate-500">
+        <div>
+          轉換後月末首次低於安全水位：<span className="font-semibold text-amber-700">{afterTransitionDateLabel(result, result.firstBelowSafetyAfterTransition)}</span>
+          <span className="mx-2 text-slate-300">|</span>
+          轉換後月末現金用盡：<span className="font-semibold text-red-700">{afterTransitionDateLabel(result, result.firstDepletedAfterTransition)}</span>
+        </div>
+        {result.firstBelowSafetyBeforeTransition && <div>轉換前月末曾低於安全水位：{dateLabel(result.firstBelowSafetyBeforeTransition)}</div>}
+        {result.firstDepletedBeforeTransition && <div>轉換前月末曾現金用盡：{dateLabel(result.firstDepletedBeforeTransition)}</div>}
       </div>
 
       <div className="h-64" role="img" aria-label={`${scenario.name}逐月現金水位圖`}>
